@@ -21,6 +21,7 @@
         </span>
       </a>
       <nav aria-label="App navigation">
+        <a href="#prompt">Prompt</a>
         <a href="#builder">Builder</a>
         <a href="#viewer">3D preview</a>
         <a href="#tools">Tools</a>
@@ -52,6 +53,17 @@
             <p class="eyebrow">3D Preview</p>
             <strong id="moleculeLabel">Water</strong>
             <span>Rotates locally in your browser</span>
+            <label class="viewer-mode">
+              View
+              <select id="surfaceMode" name="surfaceMode">
+                <option value="molecule">Molecule</option>
+                <option value="density">Electron density</option>
+                <option value="homo">HOMO preview</option>
+                <option value="lumo">LUMO preview</option>
+                <option value="spin">Spin density</option>
+                <option value="esp">ESP shell</option>
+              </select>
+            </label>
           </div>
         </div>
       </section>
@@ -82,6 +94,36 @@
         calculations are prepared locally and downloaded. Online execution, queues, accounts, and saved jobs are coming later.
       </section>
 
+      <section id="prompt" class="prompt-section">
+        <div class="panel prompt-chat">
+          <div class="section-title">
+            <p class="eyebrow">Prompt builder</p>
+            <h2>Generate an input from plain text</h2>
+          </div>
+          <div class="chat-layout">
+            <div class="chat-log" id="chatLog" aria-live="polite">
+              <div class="chat-message assistant">
+                <strong>OpenQP Web</strong>
+                <p>Describe a local OpenQP input. I can set the workflow, molecule, method, basis, charge, multiplicity, and viewer mode without using any API key.</p>
+              </div>
+            </div>
+            <form class="chat-compose" id="chatForm">
+              <label>
+                Plain-text request
+                <textarea id="chatPrompt" rows="4" spellcheck="true" placeholder="IR spectrum for benzene with B3LYP/6-31G*"></textarea>
+              </label>
+              <button class="button" type="submit">Generate input</button>
+            </form>
+          </div>
+          <div class="prompt-examples" id="promptExamples" aria-label="Example prompts">
+            <button type="button" data-prompt="IR spectrum for benzene with B3LYP/6-31G*">IR benzene</button>
+            <button type="button" data-prompt="MRSF-EKT IP for water using BHHLYP and 6-31G">EKT water</button>
+            <button type="button" data-prompt="Show HOMO and electron density for caffeine">MO caffeine</button>
+            <button type="button" data-prompt="PCM solvent single point for formaldehyde with PBE0/def2-SVP">PCM formaldehyde</button>
+          </div>
+        </div>
+      </section>
+
       <section id="builder" class="builder">
         <div class="panel workflows" aria-label="Example workflows">
           <div class="section-title">
@@ -106,6 +148,28 @@
             Molecule
             <select name="molecule" id="molecule"></select>
           </label>
+
+          <div class="database-search">
+            <label>
+              Search PubChem
+              <input id="pubchemQuery" name="pubchemQuery" placeholder="benzene, caffeine, CID 2244" />
+            </label>
+            <button class="button secondary compact" id="pubchemSearch" type="button">Import</button>
+            <span id="pubchemStatus">Public lookup imports coordinates locally</span>
+          </div>
+
+          <label>
+            XYZ coordinates
+            <textarea id="xyzInput" name="xyzInput" rows="8" spellcheck="false"></textarea>
+          </label>
+          <div class="xyz-tools">
+            <label class="file-button">
+              <input id="xyzFile" type="file" accept=".xyz,chemical/x-xyz,text/plain" />
+              Load .xyz
+            </label>
+            <button class="button secondary compact" id="resetMolecule" type="button">Reset example</button>
+            <span id="xyzStatus">Preset molecule loaded</span>
+          </div>
 
           <div class="two-col">
             <label>
@@ -132,6 +196,7 @@
               Basis
               <select name="basis" id="basis">
                 <option>STO-3G</option>
+                <option>6-31G</option>
                 <option>6-31G*</option>
                 <option>cc-pVDZ</option>
                 <option>def2-SVP</option>
@@ -164,6 +229,13 @@
             <button class="button" id="downloadInput" type="button">Download .inp</button>
             <button class="button secondary" id="downloadXyz" type="button">Download .xyz</button>
             <button class="button secondary" id="copyInput" type="button">Copy input</button>
+          </div>
+          <div class="result-preview" id="resultPreview">
+            <p class="eyebrow">Expected output</p>
+            <h3 id="resultTitle">Local run results</h3>
+            <ul id="resultList"></ul>
+            <pre id="resultSample"></pre>
+            <span>Preview only: Phase 1 prepares inputs and does not execute OpenQP online.</span>
           </div>
         </div>
       </section>
@@ -215,6 +287,16 @@
             <span class="tag">MRSF</span>
             <h3>MRSF orientation</h3>
             <p>Start from a labeled MRSF-TDDFT template and keep method-specific review in the user-controlled input.</p>
+          </article>
+          <article>
+            <span class="tag">Properties</span>
+            <h3>Spectroscopy starters</h3>
+            <p>Prepare Hessian, IR, Raman, NMR, PCM, and EKT examples, then inspect the expected local output shape.</p>
+          </article>
+          <article>
+            <span class="tag">Visualization</span>
+            <h3>MO and density previews</h3>
+            <p>Use the local viewer modes for orientation and download Molden/mol data for real orbital and density analysis.</p>
           </article>
         </div>
       </section>

@@ -192,6 +192,22 @@ nav a:hover {
   color: #d4ebe7;
 }
 
+.viewer-mode {
+  display: grid;
+  gap: 6px;
+  width: min(230px, 62vw);
+  margin-top: 12px;
+  color: #d4ebe7;
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.viewer-mode select {
+  min-height: 36px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.94);
+}
+
 .eyebrow {
   margin: 0 0 10px;
   color: var(--teal);
@@ -322,6 +338,10 @@ h3 {
   align-items: start;
 }
 
+.prompt-section {
+  padding: clamp(28px, 5vw, 54px) clamp(18px, 5vw, 72px) 0;
+}
+
 .panel {
   padding: 22px;
 }
@@ -367,6 +387,79 @@ form {
   gap: 14px;
 }
 
+.prompt-chat {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.chat-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.chat-log {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 220px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 12px;
+  background: #f8fbfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.chat-message {
+  display: grid;
+  gap: 4px;
+  max-width: 86%;
+  padding: 11px 13px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.chat-message p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.chat-message.user {
+  justify-self: end;
+  color: white;
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+.chat-message.user p {
+  color: white;
+}
+
+.chat-compose {
+  align-content: start;
+}
+
+.prompt-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.prompt-examples button {
+  min-height: 36px;
+  padding: 7px 11px;
+  color: #28524a;
+  background: #eaf5f1;
+  border: 1px solid #cfe1da;
+  border-radius: 999px;
+  font-weight: 780;
+  cursor: pointer;
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -390,6 +483,78 @@ textarea {
   resize: vertical;
 }
 
+.database-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.database-search span {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.database-search span[data-state="error"] {
+  color: #9f2f22;
+}
+
+.database-search span[data-state="ok"] {
+  color: #28524a;
+}
+
+#xyzInput {
+  min-height: 178px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.xyz-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.file-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  color: var(--ink);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.button.compact {
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+#xyzStatus[data-state="error"] {
+  color: #9f2f22;
+}
+
+#xyzStatus[data-state="ok"] {
+  color: #28524a;
+}
+
 .two-col {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -401,6 +566,40 @@ textarea {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.result-preview {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 16px;
+  background: #f8fbfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.result-preview ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
+.result-preview pre {
+  min-height: 120px;
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+  color: #d7ece8;
+  background: #17212b;
+  border-radius: 6px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.result-preview span {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .band,
@@ -487,6 +686,7 @@ footer a {
 
 @media (max-width: 1080px) {
   .hero,
+  .chat-layout,
   .builder,
   .execution {
     grid-template-columns: 1fr;
@@ -526,6 +726,7 @@ footer a {
   }
 
   .cards,
+  .database-search,
   .two-col,
   .status-panel {
     grid-template-columns: 1fr;

@@ -617,8 +617,39 @@ textarea {
   gap: 18px;
 }
 
-.cards article {
+.cards article,
+.tutorial-card {
   padding: 22px;
+}
+
+.tutorial-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-height: 230px;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tutorial-card:hover,
+.tutorial-card:focus-visible {
+  border-color: var(--teal);
+  transform: translateY(-2px);
+}
+
+.tutorial-card p {
+  margin: 0;
+}
+
+.card-action {
+  align-self: end;
+  color: var(--blue);
+  font-weight: 780;
 }
 
 .cards p,

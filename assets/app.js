@@ -378,6 +378,7 @@ const chatForm = document.querySelector("#chatForm");
 const chatPrompt = document.querySelector("#chatPrompt");
 const chatLog = document.querySelector("#chatLog");
 const promptExamples = document.querySelector("#promptExamples");
+const tutorials = document.querySelector("#tutorials");
 const xyzInput = document.querySelector("#xyzInput");
 const xyzFile = document.querySelector("#xyzFile");
 const xyzStatus = document.querySelector("#xyzStatus");
@@ -593,6 +594,11 @@ function init() {
     chatPrompt.value = button.dataset.prompt;
     await handleChatPrompt(button.dataset.prompt);
   });
+  tutorials.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-workflow]");
+    if (!button) return;
+    openTutorialWorkflow(button.dataset.workflow, button.dataset.note);
+  });
   form.addEventListener("input", renderPreview);
   form.addEventListener("change", (event) => {
     if (event.target === moleculeSelect) {
@@ -649,6 +655,21 @@ function applyWorkflow(workflow) {
   }
 
   renderPreview();
+}
+
+function openTutorialWorkflow(workflowId, note) {
+  const workflow = workflowById(workflowId);
+  applyWorkflow(workflow);
+  if (note) {
+    notes.value = note;
+  }
+  if (workflow.id === "orbitals-density") {
+    surfaceMode.value = "density";
+  }
+  lastMoleculeSignature = "";
+  renderPreview();
+  document.querySelector("#builder").scrollIntoView({ behavior: "smooth", block: "start" });
+  addChatMessage("assistant", `${workflow.title} tutorial opened in the builder. Review and download the generated files when ready.`);
 }
 
 async function handleChatPrompt(rawPrompt) {

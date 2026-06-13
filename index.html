@@ -21,8 +21,8 @@
         </span>
       </a>
       <nav aria-label="App navigation">
-        <a href="#workflows">Workflows</a>
         <a href="#prompt">Prompt</a>
+        <a href="#workflows">Workflows</a>
         <a href="/analysis.html">Analyze local results</a>
         <a href="#execution">Run online</a>
         <a href="https://www.openqp.org/">Main site</a>
@@ -30,17 +30,29 @@
     </header>
 
     <main>
-      <section class="hero simple-hero">
+      <section class="hero prompt-hero" id="prompt">
         <div class="hero-copy">
           <p class="eyebrow">OpenQP Web Phase 1</p>
-          <h1>Choose a workflow, then build the input on its own page.</h1>
+          <h1>Describe the OpenQP input you want.</h1>
           <p class="lead">
-            This app prepares local OpenQP files in the browser. It does not run jobs online,
-            create accounts, or expose API keys.
+            Start with plain text. The app will open a focused builder page where you can review
+            settings, edit the molecule, preview the structure, and download local files.
           </p>
-          <div class="hero-actions">
-            <a class="button" href="#workflows">Choose workflow</a>
-            <a class="button secondary" href="/analysis.html">Analyze local output</a>
+          <form class="hero-prompt-form" id="landingPromptForm">
+            <label>
+              Local request
+              <textarea id="landingPrompt" rows="4" spellcheck="true" placeholder="MRSF gradient for ethylene with BHHLYP/cc-pVDZ, 5 states"></textarea>
+            </label>
+            <div class="hero-actions">
+              <button class="button" type="submit">Open workflow builder</button>
+              <a class="button secondary" href="#workflows">Or choose a workflow</a>
+            </div>
+          </form>
+          <div class="prompt-examples hero-examples" id="landingPromptExamples" aria-label="Example prompts">
+            <button type="button" data-prompt="IR spectrum for benzene with B3LYP/6-31G(d)">IR benzene</button>
+            <button type="button" data-prompt="MRSF MECI optimization for ethylene with BHHLYP and cc-pVDZ">MRSF MECI</button>
+            <button type="button" data-prompt="Show HOMO and electron density for caffeine">MO caffeine</button>
+            <button type="button" data-prompt="PCM solvent single point for formaldehyde with PBE0/def2-SVP">PCM formaldehyde</button>
           </div>
         </div>
       </section>
@@ -73,35 +85,22 @@
 
       <section id="workflows" class="band">
         <div class="section-title wide-title">
-          <p class="eyebrow">Workflow launcher</p>
-          <h2>Start with a focused builder page.</h2>
+          <p class="eyebrow">Or choose a workflow</p>
+          <h2>Pick one example, then review the details.</h2>
           <p>
-            The old input generator controls are now folded into the workflow builder:
-            calculation templates, molecule import, searchable basis/functionals, and download files.
+            This keeps the first page quiet. The full settings appear only after you open the
+            focused builder page.
           </p>
         </div>
-        <div class="workflow-grid" id="workflowChooser"></div>
-      </section>
-
-      <section id="prompt" class="prompt-section">
-        <div class="panel prompt-chat compact-chat">
-          <div class="section-title">
-            <p class="eyebrow">Plain text</p>
-            <h2>Describe the input you want.</h2>
-          </div>
-          <form class="chat-compose landing-prompt" id="landingPromptForm">
+        <div class="panel workflow-picker">
+          <div class="workflow-picker-control">
             <label>
-              Local request
-              <textarea id="landingPrompt" rows="4" spellcheck="true" placeholder="MRSF gradient for ethylene with BHHLYP/cc-pVDZ, 5 states"></textarea>
+              Workflow example
+              <select id="workflowExampleSelect"></select>
             </label>
-            <button class="button" type="submit">Open workflow builder</button>
-          </form>
-          <div class="prompt-examples" id="landingPromptExamples" aria-label="Example prompts">
-            <button type="button" data-prompt="IR spectrum for benzene with B3LYP/6-31G(d)">IR benzene</button>
-            <button type="button" data-prompt="MRSF MECI optimization for ethylene with BHHLYP and cc-pVDZ">MRSF MECI</button>
-            <button type="button" data-prompt="Show HOMO and electron density for caffeine">MO caffeine</button>
-            <button type="button" data-prompt="PCM solvent single point for formaldehyde with PBE0/def2-SVP">PCM formaldehyde</button>
+            <a class="button" id="openWorkflowExample" href="/workflow.html">Open selected workflow</a>
           </div>
+          <article class="workflow-detail" id="workflowExampleDetail" aria-live="polite"></article>
         </div>
       </section>
 
@@ -157,6 +156,6 @@
       <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
     </footer>
-    <script type="module" src="/assets/app.js?v=20260614-integrated2"></script>
+    <script type="module" src="/assets/app.js?v=20260614-prompt-first"></script>
   </body>
 </html>

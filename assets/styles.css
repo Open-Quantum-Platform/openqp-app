@@ -116,9 +116,19 @@ nav a:hover {
   min-height: 520px;
 }
 
+.prompt-hero {
+  grid-template-columns: 1fr;
+  min-height: 620px;
+  align-items: center;
+}
+
 .hero-copy {
   max-width: 860px;
   align-self: end;
+}
+
+.prompt-hero .hero-copy {
+  align-self: center;
 }
 
 .molecule-scene {
@@ -259,6 +269,29 @@ h3 {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 26px;
+}
+
+.hero-prompt-form {
+  display: grid;
+  gap: 14px;
+  max-width: 760px;
+  margin-top: 28px;
+}
+
+.hero-prompt-form label {
+  color: #eaf8f5;
+}
+
+.hero-prompt-form textarea {
+  min-height: 128px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18);
+}
+
+.hero-prompt-form .hero-actions {
+  margin-top: 0;
 }
 
 .button {
@@ -512,6 +545,10 @@ form {
   margin-top: 14px;
 }
 
+.hero-examples {
+  max-width: 760px;
+}
+
 .prompt-examples button {
   min-height: 36px;
   padding: 7px 11px;
@@ -695,23 +732,61 @@ textarea {
   gap: 18px;
 }
 
-.workflow-grid {
+.workflow-picker {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: minmax(280px, 0.64fr) minmax(320px, 1fr);
+  gap: 18px;
+  max-width: 1040px;
 }
 
-.launcher-card {
+.workflow-picker-control {
   display: grid;
-  gap: 9px;
-  min-height: 182px;
+  gap: 14px;
   align-content: start;
 }
 
-.launcher-card:hover,
-.launcher-card:focus-visible {
-  border-color: var(--teal);
-  transform: translateY(-2px);
+.workflow-detail {
+  display: grid;
+  gap: 10px;
+  min-height: 220px;
+  padding: 18px;
+  background: #f8fbfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.workflow-detail p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.workflow-detail dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 4px 0 0;
+}
+
+.workflow-detail dl div {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.workflow-detail dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 780;
+  text-transform: uppercase;
+}
+
+.workflow-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 760;
 }
 
 .cards article,
@@ -966,9 +1041,6 @@ footer a {
     min-height: 380px;
   }
 
-  .workflow-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 760px) {
@@ -986,7 +1058,8 @@ footer a {
   .database-search,
   .two-col,
   .three-col,
-  .workflow-grid,
+  .workflow-picker,
+  .workflow-detail dl,
   .inline-toggles,
   .status-panel {
     grid-template-columns: 1fr;

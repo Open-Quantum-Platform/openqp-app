@@ -728,12 +728,29 @@ function init() {
 }
 
 function initHomePage() {
-  const chooser = document.querySelector("#workflowChooser");
-  if (chooser) chooser.replaceChildren(...workflows.map(renderWorkflowAnchor));
-
   const form = document.querySelector("#landingPromptForm");
   const prompt = document.querySelector("#landingPrompt");
   const examples = document.querySelector("#landingPromptExamples");
+  const workflowSelect = document.querySelector("#workflowExampleSelect");
+  const workflowDetail = document.querySelector("#workflowExampleDetail");
+  const workflowLink = document.querySelector("#openWorkflowExample");
+
+  if (workflowSelect && workflowDetail && workflowLink) {
+    workflowSelect.replaceChildren(
+      ...workflows.map((workflow) => {
+        const option = document.createElement("option");
+        option.value = workflow.id;
+        option.textContent = `${workflow.group}: ${workflow.title}`;
+        return option;
+      })
+    );
+    workflowSelect.value = "single-point";
+    updateWorkflowExampleDetail(workflowById(workflowSelect.value), workflowDetail, workflowLink);
+    workflowSelect.addEventListener("change", () => {
+      updateWorkflowExampleDetail(workflowById(workflowSelect.value), workflowDetail, workflowLink);
+    });
+  }
+
   form?.addEventListener("submit", (event) => {
     event.preventDefault();
     openPromptWorkflow(prompt?.value || "");
@@ -745,12 +762,22 @@ function initHomePage() {
   });
 }
 
-function renderWorkflowAnchor(workflow) {
-  const anchor = document.createElement("a");
-  anchor.className = "workflow-card launcher-card";
-  anchor.href = `/workflow.html?workflow=${encodeURIComponent(workflow.id)}`;
-  anchor.innerHTML = `<span class="tag">${workflow.group}</span><strong>${workflow.title}</strong><span>${workflow.detail}</span>`;
-  return anchor;
+function updateWorkflowExampleDetail(workflow, detail, link) {
+  const states = workflow.states ? `${workflow.states} state${workflow.states === 1 ? "" : "s"}` : "ground-state";
+  const functional = workflow.functional ? `, ${workflow.functional}` : "";
+  const method = `${workflow.method}${functional}/${workflow.basis}`;
+  link.href = `/workflow.html?workflow=${encodeURIComponent(workflow.id)}`;
+  detail.innerHTML = `
+    <span class="tag">${workflow.group}</span>
+    <h3>${workflow.title}</h3>
+    <p>${workflow.detail}</p>
+    <dl>
+      <div><dt>Default</dt><dd>${method}</dd></div>
+      <div><dt>Molecule</dt><dd>${molecules[workflow.molecule]?.label || "Custom"}</dd></div>
+      <div><dt>Run type</dt><dd>${workflow.runtype}</dd></div>
+      <div><dt>States</dt><dd>${states}</dd></div>
+    </dl>
+  `;
 }
 
 function openPromptWorkflow(prompt) {

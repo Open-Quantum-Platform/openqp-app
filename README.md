@@ -12,7 +12,9 @@ Phase 1 boundaries:
 
 Pages:
 
-- `/` is the simple workflow launcher.
+- `/` is the prompt-first launcher. Users can describe the input in plain text,
+  or choose one workflow example and view its details before opening the
+  builder.
 - `/workflow.html` is the focused input builder. It integrates the Phase 1
   generator controls, PubChem import, local data import, 3D structure controls,
   and downloadable `.inp`/`.xyz` files.

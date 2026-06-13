@@ -1471,10 +1471,25 @@ function downloadXyz() {
 }
 
 async function copyInput() {
-  await navigator.clipboard.writeText(renderInput());
   const button = document.querySelector("#copyInput");
   const original = button.textContent;
-  button.textContent = "Copied";
+  let copied = false;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(renderInput());
+      copied = true;
+    }
+  } catch (error) {
+    copied = false;
+  }
+
+  if (!copied) {
+    preview.focus();
+    preview.select();
+  }
+
+  button.textContent = copied ? "Copied" : "Text selected";
   setTimeout(() => {
     button.textContent = original;
   }, 1200);

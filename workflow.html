@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Focused OpenQP Web workflow builder. Static Phase 1 page for preparing downloadable OpenQP input files."
+    />
+    <title>OpenQP Workflow Builder</title>
+    <link rel="icon" href="/assets/openqp-grid.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body data-page="workflow">
+    <header class="app-header">
+      <a class="brand" href="/">
+        <span class="brand-mark">OQ</span>
+        <span>
+          <strong>Workflow Builder</strong>
+          <small>Static input preparation</small>
+        </span>
+      </a>
+      <nav aria-label="Workflow navigation">
+        <a href="/">All workflows</a>
+        <a href="#settings">Settings</a>
+        <a href="#viewer">3D viewer</a>
+        <a href="#download">Download</a>
+        <a href="/analysis.html">Analyze output</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="workflow-hero">
+        <div>
+          <p class="eyebrow">Focused workflow</p>
+          <h1 id="workflowTitle">OpenQP input builder</h1>
+          <p id="workflowDetail" class="lead">
+            Build and download OpenQP input files locally in the browser. No job is submitted online.
+          </p>
+        </div>
+        <form class="workflow-switcher" id="workflowSwitchForm">
+          <label>
+            Switch workflow
+            <select id="workflowSelect" name="workflow"></select>
+          </label>
+          <a class="button secondary" href="/">Back to workflows</a>
+        </form>
+      </section>
+
+      <section class="notice" role="status">
+        <strong>Phase 1 boundary:</strong>
+        this page prepares input and geometry files only. Run OpenQP locally or on your own cluster, then use the analysis page for output inspection.
+      </section>
+
+      <section class="prompt-section workflow-prompt">
+        <div class="panel prompt-chat compact-chat">
+          <div class="section-title">
+            <p class="eyebrow">Prompt builder</p>
+            <h2>Generate settings from plain text</h2>
+          </div>
+          <div class="chat-layout">
+            <div class="chat-log" id="chatLog" aria-live="polite">
+              <div class="chat-message assistant">
+                <strong>OpenQP Web</strong>
+                <p>Describe a local OpenQP input. I can set workflow, molecule, method, basis, states, charge, multiplicity, and viewer mode without using an API key.</p>
+              </div>
+            </div>
+            <form class="chat-compose" id="chatForm">
+              <label>
+                Plain-text request
+                <textarea id="chatPrompt" rows="4" spellcheck="true" placeholder="SF-TDDFT gradient for ethylene with BHHLYP/cc-pVDZ, 6 states"></textarea>
+              </label>
+              <button class="button" type="submit">Apply to builder</button>
+            </form>
+          </div>
+          <div class="prompt-examples" id="promptExamples" aria-label="Example prompts">
+            <button type="button" data-prompt="IR spectrum for benzene with B3LYP/6-31G(d)">IR benzene</button>
+            <button type="button" data-prompt="MRSF-TDDFT gradient for ethylene using BHHLYP and cc-pVDZ with 5 states">MRSF gradient</button>
+            <button type="button" data-prompt="Show HOMO and electron density for caffeine">MO caffeine</button>
+            <button type="button" data-prompt="MRSF MECI optimization for ethylene, istate 1 and jstate 2">MECI ethylene</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="workflow-layout" id="settings">
+        <form class="panel controls" id="inputForm">
+          <div class="section-title">
+            <p class="eyebrow">Input settings</p>
+            <h2>Configure files</h2>
+          </div>
+
+          <label>
+            Job name
+            <input name="jobName" id="jobName" value="water_hf_sp" />
+          </label>
+
+          <label>
+            Molecule preset
+            <select name="molecule" id="molecule"></select>
+          </label>
+
+          <div class="database-search">
+            <label>
+              Search PubChem
+              <input id="pubchemQuery" name="pubchemQuery" placeholder="benzene, caffeine, CID 2244" />
+            </label>
+            <button class="button secondary compact" id="pubchemSearch" type="button">Import</button>
+            <span id="pubchemStatus">Public lookup imports coordinates locally</span>
+          </div>
+
+          <label>
+            XYZ coordinates
+            <textarea id="xyzInput" name="xyzInput" rows="8" spellcheck="false"></textarea>
+          </label>
+          <div class="xyz-tools">
+            <label class="file-button">
+              <input id="xyzFile" type="file" accept=".xyz,chemical/x-xyz,text/plain" />
+              Load .xyz
+            </label>
+            <button class="button secondary compact" id="resetMolecule" type="button">Reset preset</button>
+            <span id="xyzStatus">Preset molecule loaded</span>
+          </div>
+
+          <div class="two-col">
+            <label>
+              Charge
+              <input name="charge" id="charge" type="number" value="0" />
+            </label>
+            <label>
+              Multiplicity
+              <input name="multiplicity" id="multiplicity" type="number" min="1" value="1" />
+            </label>
+          </div>
+
+          <div class="two-col">
+            <label>
+              Method family
+              <select name="method" id="method">
+                <option>HF</option>
+                <option>DFT</option>
+                <option>TDHF</option>
+                <option>SF-TDDFT</option>
+                <option>MRSF-TDDFT</option>
+              </select>
+            </label>
+            <label>
+              Functional
+              <input name="functional" id="functional" list="functionalOptions" value="B3LYP" />
+            </label>
+          </div>
+
+          <label>
+            Basis set
+            <input name="basis" id="basis" list="basisOptions" value="STO-3G" />
+          </label>
+          <datalist id="basisOptions"></datalist>
+          <datalist id="functionalOptions"></datalist>
+
+          <div class="three-col">
+            <label>
+              States
+              <input name="states" id="states" type="number" min="0" value="0" />
+            </label>
+            <label>
+              i-state
+              <input name="istate" id="istate" type="number" min="0" value="0" />
+            </label>
+            <label>
+              j-state
+              <input name="jstate" id="jstate" type="number" min="0" value="1" />
+            </label>
+          </div>
+
+          <label>
+            SCF convergence
+            <select name="conv" id="conv">
+              <option value="1.0e-8">1.0e-8</option>
+              <option value="1.0e-7">1.0e-7</option>
+              <option value="1.0e-6">1.0e-6</option>
+            </select>
+          </label>
+
+          <label>
+            Notes
+            <textarea id="notes" name="notes" rows="4">Starter file generated by OpenQP Web Phase 1. Review before production use.</textarea>
+          </label>
+        </form>
+
+        <section class="panel viewer-panel" id="viewer" aria-label="Interactive 3D molecule preview">
+          <div class="section-title">
+            <p class="eyebrow">Integrated viewer</p>
+            <h2 id="moleculeLabel">Water</h2>
+          </div>
+          <div class="molecule-scene embedded-scene">
+            <canvas id="moleculeCanvas"></canvas>
+            <div class="molecule-fallback" id="moleculeFallback" aria-hidden="true"></div>
+          </div>
+          <div class="viewer-controls">
+            <label>
+              View
+              <select id="surfaceMode" name="surfaceMode">
+                <option value="molecule">Molecule</option>
+                <option value="density">Electron density preview</option>
+                <option value="homo">HOMO preview</option>
+                <option value="lumo">LUMO preview</option>
+                <option value="spin">Spin density preview</option>
+                <option value="esp">ESP shell preview</option>
+              </select>
+            </label>
+            <div class="segmented" role="group" aria-label="Render style">
+              <button class="style-choice active" type="button" data-style="ball-stick">Ball &amp; Stick</button>
+              <button class="style-choice" type="button" data-style="space-fill">VDW</button>
+              <button class="style-choice" type="button" data-style="wire">Wire</button>
+            </div>
+            <div class="inline-toggles" role="group" aria-label="Viewer toggles">
+              <label><span>Labels</span><input id="labelToggle" type="checkbox" /></label>
+              <label><span>Numbers</span><input id="numberToggle" type="checkbox" /></label>
+              <label><span>Axis</span><input id="axisToggle" type="checkbox" /></label>
+              <label><span>Spin</span><input id="spinToggle" type="checkbox" checked /></label>
+            </div>
+            <div class="download-row tight-row">
+              <button class="button secondary compact" id="resetView" type="button">Reset view</button>
+            </div>
+          </div>
+
+          <div class="viewer-import">
+            <div class="section-title">
+              <p class="eyebrow">Local data import</p>
+              <h3>Load structure from viewer files</h3>
+            </div>
+            <label class="file-button wide-file">
+              <input id="viewerDataFile" type="file" accept=".log,.out,.txt,.molden,.mol,.cube,.cub,.json,.xyz" />
+              Choose XYZ, log, Molden, cube, or JSON
+            </label>
+            <label>
+              Paste molecular data
+              <textarea id="viewerDataInput" rows="6" spellcheck="false" placeholder="Paste XYZ, OpenQP log, Molden [Atoms], cube, or OpenQP JSON."></textarea>
+            </label>
+            <div class="download-row tight-row">
+              <button class="button secondary compact" id="loadViewerData" type="button">Load pasted data</button>
+              <button class="button secondary compact" id="clearViewerData" type="button">Clear</button>
+            </div>
+            <p id="viewerDataStatus" class="microcopy">Files are processed locally in this browser. True cube/Molden isosurface rendering remains in the advanced viewer.</p>
+            <a class="subtle-link" href="https://open-quantum-platform.github.io/OpenqpView/">Advanced cube/Molden isosurface viewer</a>
+          </div>
+        </section>
+
+        <section class="panel preview" id="download">
+          <div class="section-title">
+            <p class="eyebrow">Download</p>
+            <h2>Generated input</h2>
+          </div>
+          <textarea id="preview" spellcheck="false" aria-label="Generated OpenQP input preview"></textarea>
+          <div class="download-row">
+            <button class="button" id="downloadInput" type="button">Download .inp</button>
+            <button class="button secondary" id="downloadXyz" type="button">Download .xyz</button>
+            <button class="button secondary" id="copyInput" type="button">Copy input</button>
+            <a class="button secondary" href="/analysis.html">Open analysis page</a>
+          </div>
+          <div class="result-preview" id="resultPreview">
+            <p class="eyebrow">Expected local output</p>
+            <h3 id="resultTitle">Local run results</h3>
+            <ul id="resultList"></ul>
+            <pre id="resultSample"></pre>
+            <span>Preview only: Phase 1 prepares inputs and does not execute OpenQP online.</span>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer>
+      <span>Open Quantum Platform</span>
+      <a href="/">All workflows</a>
+      <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
+      <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
+    </footer>
+    <script type="module" src="/assets/app.js?v=20260614-integrated2"></script>
+  </body>
+</html>

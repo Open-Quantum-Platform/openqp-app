@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="OpenQP Web Phase 1 local analysis page for inspecting downloaded OpenQP output files in the browser."
+    />
+    <title>OpenQP Local Analysis</title>
+    <link rel="icon" href="/assets/openqp-grid.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body data-page="analysis">
+    <header class="app-header">
+      <a class="brand" href="/">
+        <span class="brand-mark">OQ</span>
+        <span>
+          <strong>Local Analysis</strong>
+          <small>Post-run inspection</small>
+        </span>
+      </a>
+      <nav aria-label="Analysis navigation">
+        <a href="/">All workflows</a>
+        <a href="/workflow.html">Build input</a>
+        <a href="#viewer">3D viewer</a>
+        <a href="#data">Load data</a>
+        <a href="https://www.openqp.org/">Main site</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="workflow-hero">
+        <div>
+          <p class="eyebrow">After local runs</p>
+          <h1>Inspect OpenQP results locally.</h1>
+          <p class="lead">
+            Paste or choose output files from your computer. The browser extracts structures,
+            trajectories, basic energy metadata, and viewer-ready geometry without uploading data.
+          </p>
+        </div>
+        <div class="lock-panel slim-lock">
+          <strong>No online job execution</strong>
+          <span>This page reads local files only.</span>
+        </div>
+      </section>
+
+      <section class="analysis-layout">
+        <section class="panel viewer-panel" id="viewer" aria-label="Interactive result viewer">
+          <div class="section-title">
+            <p class="eyebrow">3D viewer</p>
+            <h2 id="moleculeLabel">Sample structure</h2>
+          </div>
+          <div class="molecule-scene embedded-scene large-scene">
+            <canvas id="moleculeCanvas"></canvas>
+            <div class="molecule-fallback" id="moleculeFallback" aria-hidden="true"></div>
+          </div>
+          <div class="viewer-controls">
+            <label>
+              View
+              <select id="surfaceMode" name="surfaceMode">
+                <option value="molecule">Molecule</option>
+                <option value="density">Electron density preview</option>
+                <option value="homo">HOMO preview</option>
+                <option value="lumo">LUMO preview</option>
+                <option value="spin">Spin density preview</option>
+                <option value="esp">ESP shell preview</option>
+              </select>
+            </label>
+            <div class="segmented" role="group" aria-label="Render style">
+              <button class="style-choice active" type="button" data-style="ball-stick">Ball &amp; Stick</button>
+              <button class="style-choice" type="button" data-style="space-fill">VDW</button>
+              <button class="style-choice" type="button" data-style="wire">Wire</button>
+            </div>
+            <div class="inline-toggles" role="group" aria-label="Viewer toggles">
+              <label><span>Labels</span><input id="labelToggle" type="checkbox" checked /></label>
+              <label><span>Numbers</span><input id="numberToggle" type="checkbox" /></label>
+              <label><span>Axis</span><input id="axisToggle" type="checkbox" /></label>
+              <label><span>Spin</span><input id="spinToggle" type="checkbox" checked /></label>
+            </div>
+            <div class="download-row tight-row">
+              <button class="button secondary compact" id="resetView" type="button">Reset view</button>
+              <button class="button secondary compact" id="downloadXyz" type="button">Download current .xyz</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="data">
+          <div class="section-title">
+            <p class="eyebrow">Local files</p>
+            <h2>Load output or geometry</h2>
+          </div>
+          <label class="file-button wide-file">
+            <input id="viewerDataFile" type="file" accept=".log,.out,.txt,.molden,.mol,.cube,.cub,.json,.xyz" />
+            Choose OpenQP output, XYZ, Molden, cube, or JSON
+          </label>
+          <label>
+            Paste data
+            <textarea id="viewerDataInput" rows="12" spellcheck="false" placeholder="Paste OpenQP log, XYZ, Molden [Atoms], cube, or JSON."></textarea>
+          </label>
+          <div class="download-row tight-row">
+            <button class="button" id="loadViewerData" type="button">Load pasted data</button>
+            <button class="button secondary" id="clearViewerData" type="button">Clear</button>
+          </div>
+          <p id="viewerDataStatus" class="microcopy">Ready for local data. Nothing is uploaded.</p>
+          <div class="result-preview analysis-summary">
+            <p class="eyebrow">Parsed summary</p>
+            <h3 id="analysisTitle">No output loaded yet</h3>
+            <ul id="analysisList">
+              <li>Load a file or paste text to populate this summary.</li>
+            </ul>
+            <pre id="analysisSample">Supported: .xyz, OpenQP .log/.out, Molden geometry, cube geometry, and OpenQP JSON geometry.</pre>
+            <a class="subtle-link" href="https://open-quantum-platform.github.io/OpenqpView/">Advanced cube/Molden isosurface viewer</a>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer>
+      <span>Open Quantum Platform</span>
+      <a href="/">All workflows</a>
+      <a href="/workflow.html">Build input</a>
+      <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
+    </footer>
+    <script type="module" src="/assets/app.js?v=20260614-integrated2"></script>
+  </body>
+</html>

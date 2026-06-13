@@ -1,3 +1,5 @@
+import * as THREE from "../vendor/three.module.min.js";
+
 const molecules = {
   water: {
     label: "Water",
@@ -91,8 +93,32 @@ const method = document.querySelector("#method");
 const basis = document.querySelector("#basis");
 const conv = document.querySelector("#conv");
 const notes = document.querySelector("#notes");
+const moleculeLabel = document.querySelector("#moleculeLabel");
+const moleculeCanvas = document.querySelector("#moleculeCanvas");
+const moleculeFallback = document.querySelector("#moleculeFallback");
+
+let renderer;
+let scene;
+let camera;
+let moleculeRoot;
+let lastMoleculeKey = "";
+let fallbackMode = false;
+let dragging = false;
+let lastPointer = { x: 0, y: 0 };
+
+const atomStyles = {
+  H: { color: 0xf4f7fb, radius: 0.22, covalent: 0.31 },
+  C: { color: 0x404a55, radius: 0.34, covalent: 0.76 },
+  O: { color: 0xd84c3f, radius: 0.36, covalent: 0.66 },
+  N: { color: 0x2c67d8, radius: 0.34, covalent: 0.71 },
+  S: { color: 0xd8b72c, radius: 0.42, covalent: 1.05 }
+};
+
+const fallbackAtom = { color: 0x8aa1b4, radius: 0.34, covalent: 0.75 };
 
 function init() {
+  setupMoleculeViewer();
+
   for (const [key, molecule] of Object.entries(molecules)) {
     const option = document.createElement("option");
     option.value = key;
@@ -141,6 +167,238 @@ function safeJobName() {
 
 function xyzBody() {
   return molecules[moleculeSelect.value].xyz;
+}
+
+function setupMoleculeViewer() {
+  if (!moleculeCanvas) return;
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+  camera.position.set(0, 0.35, 6.2);
+
+  try {
+    renderer = new THREE.WebGLRenderer({
+      canvas: moleculeCanvas,
+      antialias: true,
+      alpha: true
+    });
+  } catch (error) {
+    fallbackMode = true;
+    moleculeCanvas.classList.add("is-hidden");
+    moleculeFallback?.classList.add("is-visible");
+    return;
+  }
+
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  moleculeRoot = new THREE.Group();
+  scene.add(moleculeRoot);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x244c58, 2.1));
+
+  const keyLight = new THREE.DirectionalLight(0xffffff, 2.5);
+  keyLight.position.set(3.5, 4.8, 5);
+  scene.add(keyLight);
+
+  const rimLight = new THREE.DirectionalLight(0x9df1df, 1.1);
+  rimLight.position.set(-4, 1.2, -3);
+  scene.add(rimLight);
+
+  moleculeCanvas.addEventListener("pointerdown", (event) => {
+    dragging = true;
+    lastPointer = { x: event.clientX, y: event.clientY };
+    moleculeCanvas.setPointerCapture(event.pointerId);
+  });
+
+  moleculeCanvas.addEventListener("pointermove", (event) => {
+    if (!dragging || !moleculeRoot) return;
+    const dx = event.clientX - lastPointer.x;
+    const dy = event.clientY - lastPointer.y;
+    moleculeRoot.rotation.y += dx * 0.01;
+    moleculeRoot.rotation.x += dy * 0.01;
+    lastPointer = { x: event.clientX, y: event.clientY };
+  });
+
+  moleculeCanvas.addEventListener("pointerup", (event) => {
+    dragging = false;
+    moleculeCanvas.releasePointerCapture(event.pointerId);
+  });
+
+  moleculeCanvas.addEventListener("pointerleave", () => {
+    dragging = false;
+  });
+
+  new ResizeObserver(resizeMoleculeViewer).observe(moleculeCanvas);
+  resizeMoleculeViewer();
+  animateMolecule();
+}
+
+function resizeMoleculeViewer() {
+  if (!renderer || !camera || !moleculeCanvas) return;
+  const rect = moleculeCanvas.getBoundingClientRect();
+  const width = Math.max(1, Math.floor(rect.width));
+  const height = Math.max(1, Math.floor(rect.height));
+  renderer.setSize(width, height, false);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+}
+
+function parseXYZ(xyz) {
+  return xyz
+    .trim()
+    .split(/\n/)
+    .slice(2)
+    .map((line) => {
+      const [symbol, x, y, z] = line.trim().split(/\s+/);
+      return {
+        symbol,
+        position: new THREE.Vector3(Number(x), Number(y), Number(z))
+      };
+    })
+    .filter((atom) => atom.symbol && Number.isFinite(atom.position.x));
+}
+
+function updateMoleculeViewer() {
+  const moleculeKey = moleculeSelect.value;
+  if (moleculeKey === lastMoleculeKey) return;
+  lastMoleculeKey = moleculeKey;
+
+  moleculeLabel.textContent = molecules[moleculeKey].label;
+  if (fallbackMode) {
+    renderFallbackMolecule();
+    return;
+  }
+
+  if (!moleculeRoot || !renderer) return;
+  moleculeRoot.clear();
+
+  const atoms = parseXYZ(xyzBody());
+  const center = new THREE.Box3()
+    .setFromPoints(atoms.map((atom) => atom.position))
+    .getCenter(new THREE.Vector3());
+
+  const normalizedAtoms = atoms.map((atom) => ({
+    ...atom,
+    position: atom.position.clone().sub(center)
+  }));
+
+  const bounds = new THREE.Box3().setFromPoints(normalizedAtoms.map((atom) => atom.position));
+  const size = bounds.getSize(new THREE.Vector3()).length() || 1;
+  const scale = 2.9 / size;
+
+  const atomGeometryCache = new Map();
+  const bondMaterial = new THREE.MeshStandardMaterial({
+    color: 0xd7ece8,
+    roughness: 0.42,
+    metalness: 0.08
+  });
+
+  for (let i = 0; i < normalizedAtoms.length; i += 1) {
+    for (let j = i + 1; j < normalizedAtoms.length; j += 1) {
+      const a = normalizedAtoms[i];
+      const b = normalizedAtoms[j];
+      const styleA = atomStyles[a.symbol] || fallbackAtom;
+      const styleB = atomStyles[b.symbol] || fallbackAtom;
+      const distance = a.position.distanceTo(b.position);
+      if (distance <= styleA.covalent + styleB.covalent + 0.45) {
+        moleculeRoot.add(createBond(a.position.clone().multiplyScalar(scale), b.position.clone().multiplyScalar(scale), bondMaterial));
+      }
+    }
+  }
+
+  for (const atom of normalizedAtoms) {
+    const style = atomStyles[atom.symbol] || fallbackAtom;
+    const cacheKey = `${atom.symbol}-${style.radius}`;
+    if (!atomGeometryCache.has(cacheKey)) {
+      atomGeometryCache.set(cacheKey, new THREE.SphereGeometry(style.radius, 32, 20));
+    }
+    const material = new THREE.MeshStandardMaterial({
+      color: style.color,
+      roughness: 0.36,
+      metalness: 0.04
+    });
+    const mesh = new THREE.Mesh(atomGeometryCache.get(cacheKey), material);
+    mesh.position.copy(atom.position).multiplyScalar(scale);
+    moleculeRoot.add(mesh);
+  }
+
+  moleculeRoot.rotation.set(-0.28, 0.55, 0.04);
+}
+
+function renderFallbackMolecule() {
+  if (!moleculeFallback) return;
+  moleculeFallback.replaceChildren();
+
+  const atoms = parseXYZ(xyzBody());
+  const center = new THREE.Box3()
+    .setFromPoints(atoms.map((atom) => atom.position))
+    .getCenter(new THREE.Vector3());
+  const normalizedAtoms = atoms.map((atom) => ({
+    ...atom,
+    position: atom.position.clone().sub(center)
+  }));
+  const bounds = new THREE.Box3().setFromPoints(normalizedAtoms.map((atom) => atom.position));
+  const size = bounds.getSize(new THREE.Vector3());
+  const scale = 62 / Math.max(size.x || 1, size.z || 1, 1);
+
+  const projectedAtoms = normalizedAtoms.map((atom) => ({
+    ...atom,
+    left: 50 + atom.position.x * scale,
+    top: 50 - atom.position.z * scale
+  }));
+
+  for (let i = 0; i < projectedAtoms.length; i += 1) {
+    for (let j = i + 1; j < projectedAtoms.length; j += 1) {
+      const a = projectedAtoms[i];
+      const b = projectedAtoms[j];
+      const styleA = atomStyles[a.symbol] || fallbackAtom;
+      const styleB = atomStyles[b.symbol] || fallbackAtom;
+      if (a.position.distanceTo(b.position) > styleA.covalent + styleB.covalent + 0.45) continue;
+
+      const dx = b.left - a.left;
+      const dy = b.top - a.top;
+      const bond = document.createElement("span");
+      bond.className = "fallback-bond";
+      bond.style.left = `${(a.left + b.left) / 2}%`;
+      bond.style.top = `${(a.top + b.top) / 2}%`;
+      bond.style.width = `${Math.hypot(dx, dy)}%`;
+      bond.style.transform = `translate(-50%, -50%) rotate(${Math.atan2(dy, dx)}rad)`;
+      moleculeFallback.append(bond);
+    }
+  }
+
+  for (const atom of projectedAtoms) {
+    const style = atomStyles[atom.symbol] || fallbackAtom;
+    const marker = document.createElement("span");
+    marker.className = "fallback-atom";
+    marker.textContent = atom.symbol;
+    marker.style.left = `${atom.left}%`;
+    marker.style.top = `${atom.top}%`;
+    marker.style.setProperty("--color", `#${style.color.toString(16).padStart(6, "0")}`);
+    marker.style.setProperty("--size", `${Math.round(style.radius * 68)}px`);
+    moleculeFallback.append(marker);
+  }
+}
+
+function createBond(start, end, material) {
+  const midpoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+  const direction = new THREE.Vector3().subVectors(end, start);
+  const length = direction.length();
+  const geometry = new THREE.CylinderGeometry(0.055, 0.055, length, 18);
+  const cylinder = new THREE.Mesh(geometry, material);
+  cylinder.position.copy(midpoint);
+  cylinder.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+  return cylinder;
+}
+
+function animateMolecule() {
+  if (!renderer || !scene || !camera) return;
+  requestAnimationFrame(animateMolecule);
+  if (moleculeRoot && !dragging) {
+    moleculeRoot.rotation.y += 0.0045;
+  }
+  renderer.render(scene, camera);
 }
 
 function renderInput() {
@@ -196,6 +454,7 @@ function renderInput() {
 
 function renderPreview() {
   preview.value = renderInput();
+  updateMoleculeViewer();
 }
 
 function downloadFile(filename, content, type) {

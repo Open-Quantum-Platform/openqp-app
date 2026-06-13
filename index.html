@@ -8,6 +8,7 @@
       content="OpenQP Web Phase 1 prepares downloadable OpenQP input files in the browser. Online execution is not enabled yet."
     />
     <title>OpenQP Web</title>
+    <link rel="icon" href="/assets/openqp-grid.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body>
@@ -21,6 +22,8 @@
       </a>
       <nav aria-label="App navigation">
         <a href="#builder">Builder</a>
+        <a href="#viewer">3D preview</a>
+        <a href="#tools">Tools</a>
         <a href="#tutorials">Tutorials</a>
         <a href="#execution">Run online</a>
         <a href="https://www.openqp.org/">Main site</a>
@@ -38,10 +41,23 @@
           </p>
           <div class="hero-actions">
             <a class="button" href="#builder">Build an input</a>
+            <a class="button secondary" href="https://open-quantum-platform.github.io/OpenQP_Input_Generator/">Open full generator</a>
             <a class="button secondary" href="#execution">Execution status</a>
           </div>
         </div>
-        <div class="status-panel" aria-label="Phase 1 status">
+        <div class="molecule-scene" id="viewer" aria-label="Interactive 3D molecule preview">
+          <canvas id="moleculeCanvas"></canvas>
+          <div class="molecule-fallback" id="moleculeFallback" aria-hidden="true"></div>
+          <div class="molecule-overlay">
+            <p class="eyebrow">3D Preview</p>
+            <strong id="moleculeLabel">Water</strong>
+            <span>Rotates locally in your browser</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="status-strip" aria-label="Phase 1 status">
+        <div class="status-panel">
           <div class="status-row">
             <span>Frontend</span>
             <strong>Static</strong>
@@ -152,6 +168,33 @@
         </div>
       </section>
 
+      <section id="tools" class="band alt">
+        <div class="section-title">
+          <p class="eyebrow">OpenQP tools</p>
+          <h2>Use the existing viewers when you need the full workspace.</h2>
+        </div>
+        <div class="cards tool-cards">
+          <article>
+            <span class="tag">Input builder</span>
+            <h3>OpenQP Input Generator</h3>
+            <p>Use the existing generator and 3D editor for more detailed input construction.</p>
+            <a class="button secondary" href="https://open-quantum-platform.github.io/OpenQP_Input_Generator/">Launch generator</a>
+          </article>
+          <article>
+            <span class="tag">Molecule viewer</span>
+            <h3>OpenqpView</h3>
+            <p>Open the standalone molecule viewer for focused structure inspection.</p>
+            <a class="button secondary" href="https://open-quantum-platform.github.io/OpenqpView/">Launch viewer</a>
+          </article>
+          <article>
+            <span class="tag">Phase 1</span>
+            <h3>Download-first workflow</h3>
+            <p>This app keeps the first public workflow simple: choose, preview, edit, and download.</p>
+            <a class="button secondary" href="#builder">Return to builder</a>
+          </article>
+        </div>
+      </section>
+
       <section id="tutorials" class="band">
         <div class="section-title">
           <p class="eyebrow">Tutorials</p>
@@ -197,6 +240,6 @@
       <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
       <a href="https://openqp.readthedocs.io/">Documentation</a>
     </footer>
-    <script src="/assets/app.js" defer></script>
+    <script type="module" src="/assets/app.js"></script>
   </body>
 </html>

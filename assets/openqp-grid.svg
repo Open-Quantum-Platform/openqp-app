@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" role="img" aria-label="Abstract molecular grid">
+  <rect width="1400" height="900" fill="#12313d"/>
+  <g fill="none" stroke="#5fc9b5" stroke-opacity="0.34" stroke-width="2">
+    <path d="M108 230h244l122 211-122 211H108L-14 441z"/>
+    <path d="M474 441h244l122 211-122 211H474L352 652z"/>
+    <path d="M718 19h244l122 211-122 211H718L596 230z"/>
+    <path d="M962 441h244l122 211-122 211H962L840 652z"/>
+  </g>
+  <g fill="#f7faf8">
+    <circle cx="352" cy="230" r="14"/>
+    <circle cx="474" cy="441" r="10"/>
+    <circle cx="718" cy="441" r="15"/>
+    <circle cx="840" cy="652" r="10"/>
+    <circle cx="1084" cy="230" r="16"/>
+    <circle cx="1206" cy="652" r="11"/>
+  </g>
+  <g stroke="#f0b955" stroke-width="4" stroke-linecap="round" opacity="0.72">
+    <path d="M352 230l122 211"/>
+    <path d="M474 441h244"/>
+    <path d="M718 441l122 211"/>
+    <path d="M1084 230L962 441"/>
+    <path d="M962 441l244 211"/>
+  </g>
+</svg>

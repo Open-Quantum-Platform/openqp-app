@@ -117,7 +117,7 @@ nav a:hover {
 }
 
 .prompt-hero {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.54fr);
   min-height: 620px;
   align-items: center;
 }
@@ -292,6 +292,37 @@ h3 {
 
 .hero-prompt-form .hero-actions {
   margin-top: 0;
+}
+
+.home-demo {
+  position: relative;
+  align-self: stretch;
+  min-height: clamp(360px, 44vw, 560px);
+}
+
+.home-demo-scene {
+  height: 100%;
+  min-height: inherit;
+  margin: 0;
+}
+
+.home-demo-caption {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: grid;
+  gap: 3px;
+  padding: 14px 0 0;
+  background: linear-gradient(90deg, rgba(18, 49, 61, 0.9), rgba(18, 49, 61, 0));
+}
+
+.home-demo-caption strong {
+  font-size: 1.35rem;
+}
+
+.home-demo-caption span {
+  color: #d4ebe7;
+  font-weight: 720;
 }
 
 .button {
@@ -1052,6 +1083,38 @@ footer a {
 
   nav {
     justify-content: flex-start;
+  }
+
+  .prompt-hero {
+    min-height: auto;
+    padding-top: 34px;
+    padding-bottom: 34px;
+  }
+
+  .prompt-hero h1 {
+    font-size: 2.08rem;
+  }
+
+  .prompt-hero .lead {
+    margin-top: 14px;
+    font-size: 1rem;
+  }
+
+  .hero-prompt-form {
+    margin-top: 18px;
+  }
+
+  .hero-prompt-form textarea {
+    min-height: 96px;
+  }
+
+  .home-demo {
+    min-height: 280px;
+  }
+
+  .home-demo-scene {
+    height: 280px;
+    min-height: 280px;
   }
 
   .cards,

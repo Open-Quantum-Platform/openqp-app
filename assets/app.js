@@ -760,6 +760,10 @@ function initHomePage() {
     if (!button) return;
     openPromptWorkflow(button.dataset.prompt);
   });
+
+  state.analysisXYZ = molecules.caffeine.xyz;
+  setupMoleculeViewer();
+  updateMoleculeViewer();
 }
 
 function updateWorkflowExampleDetail(workflow, detail, link) {

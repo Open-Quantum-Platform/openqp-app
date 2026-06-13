@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="OpenQP Web Phase 1 prepares downloadable OpenQP input files in the browser. Online execution is not enabled yet."
+      content="OpenQP Web prepares downloadable OpenQP input files in the browser."
     />
     <title>OpenQP Web</title>
     <link rel="icon" href="/assets/openqp-grid.svg" type="image/svg+xml" />
@@ -17,14 +17,13 @@
         <span class="brand-mark">OQ</span>
         <span>
           <strong>OpenQP Web</strong>
-          <small>Phase 1 static workflows</small>
+          <small>Input builder</small>
         </span>
       </a>
       <nav aria-label="App navigation">
         <a href="#prompt">Prompt</a>
         <a href="#workflows">Workflows</a>
         <a href="/analysis.html">Analyze local results</a>
-        <a href="#execution">Run online</a>
         <a href="https://www.openqp.org/">Main site</a>
       </nav>
     </header>
@@ -32,7 +31,7 @@
     <main>
       <section class="hero prompt-hero" id="prompt">
         <div class="hero-copy">
-          <p class="eyebrow">OpenQP Web Phase 1</p>
+          <p class="eyebrow">OpenQP Web</p>
           <h1>Describe the OpenQP input you want.</h1>
           <p class="lead">
             Start with plain text. The app will open a focused builder page where you can review
@@ -55,32 +54,16 @@
             <button type="button" data-prompt="PCM solvent single point for formaldehyde with PBE0/def2-SVP">PCM formaldehyde</button>
           </div>
         </div>
-      </section>
-
-      <section class="status-strip" aria-label="Phase 1 status">
-        <div class="status-panel">
-          <div class="status-row">
-            <span>Frontend</span>
-            <strong>Static</strong>
+        <div class="home-demo" aria-label="Rotating molecule preview">
+          <div class="molecule-scene home-demo-scene">
+            <canvas id="moleculeCanvas"></canvas>
+            <div class="molecule-fallback" id="moleculeFallback" aria-hidden="true"></div>
           </div>
-          <div class="status-row">
-            <span>OpenQP jobs</span>
-            <strong>Not run online</strong>
-          </div>
-          <div class="status-row">
-            <span>Accounts</span>
-            <strong>No login</strong>
-          </div>
-          <div class="status-row">
-            <span>Secrets</span>
-            <strong>No browser API keys</strong>
+          <div class="home-demo-caption">
+            <strong id="moleculeLabel">Caffeine</strong>
+            <span>3D preview</span>
           </div>
         </div>
-      </section>
-
-      <section class="notice" role="status">
-        <strong>Phase 1 boundary:</strong>
-        calculations are prepared locally and downloaded. Online execution, queues, accounts, and saved jobs are coming later.
       </section>
 
       <section id="workflows" class="band">
@@ -103,52 +86,6 @@
           <article class="workflow-detail" id="workflowExampleDetail" aria-live="polite"></article>
         </div>
       </section>
-
-      <section class="band alt">
-        <div class="section-title wide-title">
-          <p class="eyebrow">Integrated tools</p>
-          <h2>Generator and viewer functions are inside the app.</h2>
-          <p>
-            Use workflow pages for input generation and 3D structure controls. Use the analysis page
-            after a local OpenQP run to inspect logs, XYZ, JSON, Molden geometry, and cube geometry locally.
-          </p>
-        </div>
-        <div class="cards tool-cards">
-          <article>
-            <span class="tag">Input generator</span>
-            <h3>Templates and downloadable files</h3>
-            <p>DFT, TDHF, SF-TDDFT, MRSF, Hessian, IR, Raman, NMR, PCM, EKT, MEP, and MECI starters.</p>
-            <a class="button secondary" href="/workflow.html">Open builder</a>
-          </article>
-          <article>
-            <span class="tag">Molecule viewer</span>
-            <h3>3D controls and local import</h3>
-            <p>Ball-stick, VDW, wire, labels, atom numbers, axes, surface previews, PubChem, XYZ, Molden, cube, JSON, and log geometry import.</p>
-            <a class="button secondary" href="/analysis.html">Open analysis page</a>
-          </article>
-          <article>
-            <span class="tag">Advanced fallback</span>
-            <h3>True cube/Molden isosurfaces</h3>
-            <p>For marching-cubes orbital surfaces from full cube grids or Molden coefficients, use the standalone advanced viewer for now.</p>
-            <a class="button secondary" href="https://open-quantum-platform.github.io/OpenqpView/">Open advanced viewer</a>
-          </article>
-        </div>
-      </section>
-
-      <section id="execution" class="execution">
-        <div>
-          <p class="eyebrow">Coming soon</p>
-          <h2>Run OpenQP Online</h2>
-          <p>
-            Online execution is not enabled in Phase 1. The next phase can add authenticated job submission,
-            queue status, result downloads, and cost controls after the static builder is stable.
-          </p>
-        </div>
-        <div class="lock-panel">
-          <strong>Execution backend disabled</strong>
-          <span>No jobs are submitted from this page.</span>
-        </div>
-      </section>
     </main>
 
     <footer>
@@ -156,6 +93,6 @@
       <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
     </footer>
-    <script type="module" src="/assets/app.js?v=20260614-prompt-first"></script>
+    <script type="module" src="/assets/app.js?v=20260614-simple-3d"></script>
   </body>
 </html>

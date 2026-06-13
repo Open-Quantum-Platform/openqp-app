@@ -14,7 +14,8 @@ Pages:
 
 - `/` is the prompt-first launcher. Users can describe the input in plain text,
   or choose one workflow example and view its details before opening the
-  builder.
+  builder. It includes a passive 3D molecule demo, without exposing detailed
+  workflow controls on the first page.
 - `/workflow.html` is the focused input builder. It integrates the Phase 1
   generator controls, PubChem import, local data import, 3D structure controls,
   and downloadable `.inp`/`.xyz` files.

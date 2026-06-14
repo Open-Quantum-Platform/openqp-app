@@ -257,10 +257,23 @@
               <p class="eyebrow">Run on this computer</p>
               <h3>Use your local OpenQP installation</h3>
               <p>
-                Download a runnable package with the `.inp`, `.xyz`, launcher script, and README. Keep the
-                files together; the launcher runs `openqp` from your PATH and writes output into `openqp-results`.
-                Nothing is uploaded.
+                Start the local runner for one-button execution, or download a runnable package with the
+                `.inp`, `.xyz`, launcher script, and README. Nothing is uploaded.
               </p>
+            </div>
+            <div class="local-runner-panel">
+              <label>
+                Pairing code
+                <input id="localRunnerToken" type="password" autocomplete="off" placeholder="Code from local runner" />
+              </label>
+              <div class="download-row tight-row">
+                <a class="button secondary compact" href="/tools/openqp-local-runner.py" download>Download local runner</a>
+                <button class="button secondary compact" id="checkLocalRunner" type="button">Check local runner</button>
+                <button class="button compact" id="runLocalOpenQp" type="button">Run with local OpenQP</button>
+                <button class="button secondary compact" id="cancelLocalOpenQp" type="button" disabled>Stop run</button>
+              </div>
+              <p class="microcopy" id="localRunnerStatus">Local runner not connected.</p>
+              <pre class="runner-log" id="localRunnerLog" aria-label="Local OpenQP runner log"></pre>
             </div>
             <label>
               Operating system
@@ -307,6 +320,6 @@
       <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
     </footer>
-    <script type="module" src="/assets/app.js?v=20260614-run-package2"></script>
+    <script type="module" src="/assets/app.js?v=20260614-local-runner"></script>
   </body>
 </html>

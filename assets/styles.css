@@ -748,14 +748,36 @@ textarea {
   white-space: pre-wrap;
 }
 
+.local-runner-panel {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.local-runner-panel label {
+  max-width: 360px;
+}
+
+.runner-log {
+  max-height: 260px;
+  min-height: 112px;
+}
+
 .microcopy[data-state="error"],
-#localRunStatus[data-state="error"] {
+#localRunStatus[data-state="error"],
+#localRunnerStatus[data-state="error"] {
   color: #9f2f22;
 }
 
 .microcopy[data-state="ok"],
-#localRunStatus[data-state="ok"] {
+#localRunStatus[data-state="ok"],
+#localRunnerStatus[data-state="ok"] {
   color: #28524a;
+}
+
+#localRunnerStatus[data-state="running"] {
+  color: #3866a3;
 }
 
 .result-preview {

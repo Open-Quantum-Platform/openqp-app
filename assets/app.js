@@ -1,6 +1,9 @@
 import * as THREE from "../vendor/three.module.min.js";
 
 const BOHR_TO_ANGSTROM = 0.529177210903;
+const LOCAL_RUNNER_URL = "http://127.0.0.1:17651";
+const LOCAL_RUNNER_TOKEN_KEY = "openqpLocalRunnerToken";
+const LOCAL_RUNNER_POLL_MS = 1200;
 
 const molecules = {
   water: {
@@ -650,6 +653,10 @@ let fallbackMode = false;
 let dragging = false;
 let lastPointer = { x: 0, y: 0 };
 let viewerDebugFrame = 0;
+const localRunnerState = {
+  jobId: "",
+  pollTimer: 0
+};
 const viewerDebugStats = {
   width: 0,
   height: 0,
@@ -861,7 +868,13 @@ function captureWorkflowDom() {
     downloadRunPackage: document.querySelector("#downloadRunPackage"),
     copyLocalCommand: document.querySelector("#copyLocalCommand"),
     downloadRunScript: document.querySelector("#downloadRunScript"),
-    localRunStatus: document.querySelector("#localRunStatus")
+    localRunStatus: document.querySelector("#localRunStatus"),
+    localRunnerToken: document.querySelector("#localRunnerToken"),
+    checkLocalRunner: document.querySelector("#checkLocalRunner"),
+    runLocalOpenQp: document.querySelector("#runLocalOpenQp"),
+    cancelLocalOpenQp: document.querySelector("#cancelLocalOpenQp"),
+    localRunnerStatus: document.querySelector("#localRunnerStatus"),
+    localRunnerLog: document.querySelector("#localRunnerLog")
   });
 }
 
@@ -951,6 +964,11 @@ function setupBuilderEvents() {
   dom.downloadRunPackage?.addEventListener("click", downloadRunPackage);
   dom.copyLocalCommand?.addEventListener("click", copyLocalCommand);
   dom.downloadRunScript?.addEventListener("click", downloadRunScript);
+  restoreLocalRunnerToken();
+  dom.localRunnerToken?.addEventListener("input", storeLocalRunnerToken);
+  dom.checkLocalRunner?.addEventListener("click", () => checkLocalRunner());
+  dom.runLocalOpenQp?.addEventListener("click", () => startLocalRunnerJob());
+  dom.cancelLocalOpenQp?.addEventListener("click", () => cancelLocalRunnerJob());
   detectPreferredLocalRunOs();
 }
 
@@ -1023,6 +1041,7 @@ async function handleChatPrompt(rawPrompt, options = {}) {
 function showLocalRunStep() {
   const target = document.querySelector("#local-run");
   target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  setStatusText(dom.localRunnerStatus, "Ready to send this job to the local runner.", "ok");
   if (dom.localRunStatus) {
     const script = localRunScriptName();
     dom.localRunStatus.dataset.state = "ok";
@@ -2250,6 +2269,185 @@ function crc32(bytes) {
     crc = crc32Lookup[(crc ^ byte) & 0xff] ^ (crc >>> 8);
   }
   return (crc ^ 0xffffffff) >>> 0;
+}
+
+function restoreLocalRunnerToken() {
+  if (!dom.localRunnerToken) return;
+  try {
+    dom.localRunnerToken.value = sessionStorage.getItem(LOCAL_RUNNER_TOKEN_KEY) || "";
+  } catch (error) {
+    dom.localRunnerToken.value = "";
+  }
+}
+
+function storeLocalRunnerToken() {
+  if (!dom.localRunnerToken) return;
+  try {
+    sessionStorage.setItem(LOCAL_RUNNER_TOKEN_KEY, dom.localRunnerToken.value.trim());
+  } catch (error) {
+    // Ignore private-browsing storage failures; the field still works for this page.
+  }
+}
+
+function localRunnerToken() {
+  return dom.localRunnerToken?.value.trim() || "";
+}
+
+function localRunnerHeaders(hasBody = false) {
+  const headers = {};
+  const token = localRunnerToken();
+  if (hasBody) headers["Content-Type"] = "application/json";
+  if (token) headers["X-OpenQP-Runner-Token"] = token;
+  return headers;
+}
+
+async function localRunnerRequest(path, options = {}) {
+  const response = await fetch(`${LOCAL_RUNNER_URL}${path}`, {
+    mode: "cors",
+    cache: "no-store",
+    ...options,
+    headers: {
+      ...localRunnerHeaders(Boolean(options.body)),
+      ...(options.headers || {})
+    }
+  });
+  const text = await response.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (error) {
+    data = { error: text || "Local runner returned an unreadable response." };
+  }
+  if (!response.ok) {
+    throw new Error(data.error || `Local runner returned HTTP ${response.status}.`);
+  }
+  return data;
+}
+
+function setLocalRunnerStatus(text, stateName = "") {
+  setStatusText(dom.localRunnerStatus, text, stateName);
+}
+
+function setLocalRunnerLog(text) {
+  if (!dom.localRunnerLog) return;
+  dom.localRunnerLog.textContent = text || "";
+  dom.localRunnerLog.scrollTop = dom.localRunnerLog.scrollHeight;
+}
+
+function setLocalRunnerBusy(isBusy) {
+  if (dom.runLocalOpenQp) dom.runLocalOpenQp.disabled = isBusy;
+  if (dom.checkLocalRunner) dom.checkLocalRunner.disabled = isBusy;
+  if (dom.cancelLocalOpenQp) dom.cancelLocalOpenQp.disabled = !isBusy;
+}
+
+async function checkLocalRunner({ quiet = false } = {}) {
+  try {
+    const health = await localRunnerRequest("/health");
+    const openqpText = health.openqp?.available ? `OpenQP: ${health.openqp.path || health.openqp.configured}` : "OpenQP command not found";
+    setLocalRunnerStatus(`Local runner connected. ${openqpText}.`, health.openqp?.available ? "ok" : "error");
+    if (!quiet) {
+      setLocalRunnerLog([
+        `${health.runner || "OpenQP Local Runner"} ${health.version || ""}`.trim(),
+        `Work folder: ${health.workDir || ""}`,
+        `Limit: ${health.maxAtoms || "?"} atoms, ${health.timeoutSeconds || "?"} s`
+      ].join("\n"));
+    }
+    return health;
+  } catch (error) {
+    if (!quiet) {
+      setLocalRunnerStatus("Local runner is not reachable. Download and start it, then enter the pairing code.", "error");
+      setLocalRunnerLog(error.message || "Could not connect to local runner.");
+    }
+    throw error;
+  }
+}
+
+async function startLocalRunnerJob() {
+  if (!localRunnerToken()) {
+    setLocalRunnerStatus("Enter the pairing code printed by the local runner.", "error");
+    dom.localRunnerToken?.focus();
+    return;
+  }
+
+  stopLocalRunnerPolling();
+  setLocalRunnerBusy(true);
+  setLocalRunnerStatus("Starting local OpenQP run...", "running");
+  setLocalRunnerLog("");
+
+  try {
+    await checkLocalRunner({ quiet: true });
+    const job = await localRunnerRequest("/jobs", {
+      method: "POST",
+      body: JSON.stringify({
+        jobName: safeJobName(),
+        input: renderInput(),
+        xyz: `${xyzBody()}\n`,
+        workflow: state.workflow?.id || "",
+        timeoutSeconds: 900
+      })
+    });
+    localRunnerState.jobId = job.id;
+    updateLocalRunnerJob(job);
+    startLocalRunnerPolling();
+  } catch (error) {
+    setLocalRunnerBusy(false);
+    setLocalRunnerStatus(error.message || "Could not start local OpenQP.", "error");
+  }
+}
+
+function startLocalRunnerPolling() {
+  stopLocalRunnerPolling();
+  localRunnerState.pollTimer = window.setInterval(pollLocalRunnerJob, LOCAL_RUNNER_POLL_MS);
+}
+
+function stopLocalRunnerPolling() {
+  if (!localRunnerState.pollTimer) return;
+  window.clearInterval(localRunnerState.pollTimer);
+  localRunnerState.pollTimer = 0;
+}
+
+async function pollLocalRunnerJob() {
+  if (!localRunnerState.jobId) return;
+  try {
+    const job = await localRunnerRequest(`/jobs/${encodeURIComponent(localRunnerState.jobId)}`);
+    updateLocalRunnerJob(job);
+  } catch (error) {
+    stopLocalRunnerPolling();
+    setLocalRunnerBusy(false);
+    setLocalRunnerStatus(error.message || "Could not read local OpenQP status.", "error");
+  }
+}
+
+function updateLocalRunnerJob(job) {
+  const status = job.status || "unknown";
+  const terminal = ["complete", "failed", "canceled", "timed_out"].includes(status);
+  const statusText = {
+    queued: "Local OpenQP job is queued.",
+    running: "Local OpenQP is running.",
+    canceling: "Stopping local OpenQP run...",
+    complete: `Local OpenQP finished. Output: ${job.output || ""}`,
+    failed: `Local OpenQP failed. Output: ${job.output || ""}`,
+    canceled: "Local OpenQP run was stopped.",
+    timed_out: "Local OpenQP run timed out."
+  }[status] || `Local OpenQP status: ${status}.`;
+  setLocalRunnerStatus(statusText, terminal ? (status === "complete" ? "ok" : "error") : "running");
+  setLocalRunnerLog(job.log || "");
+  if (terminal) {
+    stopLocalRunnerPolling();
+    setLocalRunnerBusy(false);
+  } else {
+    setLocalRunnerBusy(true);
+  }
+}
+
+async function cancelLocalRunnerJob() {
+  if (!localRunnerState.jobId) return;
+  try {
+    const job = await localRunnerRequest(`/jobs/${encodeURIComponent(localRunnerState.jobId)}/cancel`, { method: "POST" });
+    updateLocalRunnerJob(job);
+  } catch (error) {
+    setLocalRunnerStatus(error.message || "Could not stop local OpenQP.", "error");
+  }
 }
 
 async function copyLocalCommand() {

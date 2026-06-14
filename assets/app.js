@@ -680,6 +680,9 @@ let scene;
 let camera;
 let moleculeRoot;
 let lastMoleculeSignature = "";
+let moleculeResizeObserver;
+let moleculeResizeFrame = 0;
+let moleculeLastSize = { width: 0, height: 0 };
 let fallbackMode = false;
 let dragging = false;
 let lastPointer = { x: 0, y: 0 };
@@ -1461,7 +1464,11 @@ function setupMoleculeViewer() {
     dragging = false;
   });
 
-  new ResizeObserver(resizeMoleculeViewer).observe(dom.moleculeCanvas);
+  moleculeResizeObserver?.disconnect();
+  moleculeResizeObserver = new ResizeObserver(queueMoleculeResize);
+  moleculeResizeObserver.observe(moleculeSceneElement());
+  window.addEventListener("resize", queueMoleculeResize, { passive: true });
+  window.addEventListener("orientationchange", queueMoleculeResize, { passive: true });
   resizeMoleculeViewer();
   animateMolecule();
 }
@@ -1516,14 +1523,34 @@ function forceViewerRefresh() {
   else updateMoleculeViewer();
 }
 
+function moleculeSceneElement() {
+  return dom.moleculeCanvas?.closest(".molecule-scene") || dom.moleculeCanvas;
+}
+
+function queueMoleculeResize() {
+  if (moleculeResizeFrame) cancelAnimationFrame(moleculeResizeFrame);
+  moleculeResizeFrame = requestAnimationFrame(() => {
+    moleculeResizeFrame = 0;
+    resizeMoleculeViewer();
+  });
+}
+
 function resizeMoleculeViewer() {
   if (!renderer || !camera || !dom.moleculeCanvas) return;
-  const rect = dom.moleculeCanvas.getBoundingClientRect();
+  const rect = moleculeSceneElement().getBoundingClientRect();
   const width = Math.max(1, Math.floor(rect.width));
   const height = Math.max(1, Math.floor(rect.height));
+  const changed = width !== moleculeLastSize.width || height !== moleculeLastSize.height;
+  moleculeLastSize = { width, height };
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+  if (changed) {
+    lastMoleculeSignature = "";
+    updateMoleculeViewer();
+  } else if (scene && camera) {
+    renderer.render(scene, camera);
+  }
 }
 
 function parseXYZ(xyz) {

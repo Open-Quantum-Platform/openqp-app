@@ -24,15 +24,19 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 
 VERSION = "0.1.0"
 DEFAULT_PORT = 17651
 DEFAULT_ORIGINS = (
     "https://app.openqp.org",
+    "http://127.0.0.1:17651",
+    "http://localhost:17651",
     "http://127.0.0.1:4174",
     "http://localhost:4174",
 )
+REMOTE_APP_ORIGIN = "https://app.openqp.org"
 
 
 def safe_job_name(value: str) -> str:
@@ -286,6 +290,38 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded)
 
+    def send_bytes(self, content: bytes, content_type: str, status: HTTPStatus = HTTPStatus.OK) -> None:
+        self.send_response(status)
+        self.add_cors_headers()
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
+
+    def proxy_app_asset(self, path: str) -> bool:
+        if path == "/":
+            path = "/workflow.html"
+        allowed = (
+            path in {"/index.html", "/workflow.html", "/analysis.html", "/README.md"}
+            or path.startswith("/assets/")
+            or path.startswith("/vendor/")
+        )
+        if not allowed:
+            return False
+        target = f"{REMOTE_APP_ORIGIN}{path}"
+        try:
+            request = Request(target, headers={"User-Agent": f"OpenQPLocalRunner/{VERSION}"})
+            with urlopen(request, timeout=10) as response:
+                content = response.read()
+                content_type = response.headers.get_content_type()
+                charset = response.headers.get_content_charset()
+                if charset:
+                    content_type = f"{content_type}; charset={charset}"
+                self.send_bytes(content, content_type)
+        except Exception as exc:  # noqa: BLE001 - local helper should report proxy failures.
+            self.send_json({"error": f"Could not load app asset: {exc}"}, HTTPStatus.BAD_GATEWAY)
+        return True
+
     def read_json(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length") or "0")
         if length <= 0:
@@ -325,6 +361,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+        if path == "/tools/openqp-local-runner.py":
+            self.send_bytes(Path(__file__).read_bytes(), "text/x-python; charset=utf-8")
+            return
         if path.startswith("/jobs/"):
             if not self.require_token():
                 return
@@ -333,6 +372,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_json(self.state.public_job(job_id))
             except KeyError:
                 self.send_json({"error": "Job was not found."}, HTTPStatus.NOT_FOUND)
+            return
+        if self.proxy_app_asset(path):
             return
         self.send_json({"error": "Not found."}, HTTPStatus.NOT_FOUND)
 
@@ -396,6 +437,7 @@ def main() -> int:
     print(f"Pairing code: {token}")
     print(f"OpenQP command: {args.openqp}")
     print(f"Work folder: {state.work_dir}")
+    print(f"Local mode: http://{args.host}:{args.port}/workflow.html")
     print("Keep this window open while running jobs from app.openqp.org.")
     try:
         server.serve_forever()

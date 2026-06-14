@@ -2340,6 +2340,14 @@ function setLocalRunnerBusy(isBusy) {
   if (dom.cancelLocalOpenQp) dom.cancelLocalOpenQp.disabled = !isBusy;
 }
 
+function localRunnerConnectionMessage(error) {
+  const message = error?.message || "";
+  if (window.location.protocol === "https:" && /Failed to fetch|Load failed|NetworkError/i.test(message)) {
+    return "This browser blocked direct localhost access from HTTPS. Start the local runner, then open local mode.";
+  }
+  return message || "Could not connect to local runner.";
+}
+
 async function checkLocalRunner({ quiet = false } = {}) {
   try {
     const health = await localRunnerRequest("/health");
@@ -2355,8 +2363,8 @@ async function checkLocalRunner({ quiet = false } = {}) {
     return health;
   } catch (error) {
     if (!quiet) {
-      setLocalRunnerStatus("Local runner is not reachable. Download and start it, then enter the pairing code.", "error");
-      setLocalRunnerLog(error.message || "Could not connect to local runner.");
+      setLocalRunnerStatus(localRunnerConnectionMessage(error), "error");
+      setLocalRunnerLog(localRunnerConnectionMessage(error));
     }
     throw error;
   }
@@ -2391,7 +2399,7 @@ async function startLocalRunnerJob() {
     startLocalRunnerPolling();
   } catch (error) {
     setLocalRunnerBusy(false);
-    setLocalRunnerStatus(error.message || "Could not start local OpenQP.", "error");
+    setLocalRunnerStatus(localRunnerConnectionMessage(error), "error");
   }
 }
 
@@ -2414,7 +2422,7 @@ async function pollLocalRunnerJob() {
   } catch (error) {
     stopLocalRunnerPolling();
     setLocalRunnerBusy(false);
-    setLocalRunnerStatus(error.message || "Could not read local OpenQP status.", "error");
+    setLocalRunnerStatus(localRunnerConnectionMessage(error), "error");
   }
 }
 

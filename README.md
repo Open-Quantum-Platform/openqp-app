@@ -30,6 +30,8 @@ Local runner:
 
 - Download `/tools/openqp-local-runner.py`.
 - Start it with `python3 openqp-local-runner.py`.
+- Open `http://127.0.0.1:17651/workflow.html`, or use the hosted workflow page
+  if the browser allows HTTPS-to-localhost access.
 - Enter the printed pairing code in the workflow page and use
   `Run with local OpenQP`.
 - The runner listens on `127.0.0.1:17651`, accepts only allowed browser origins,

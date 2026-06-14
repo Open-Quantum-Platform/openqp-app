@@ -50,7 +50,7 @@
 
       <section class="notice" role="status">
         <strong>Runs stay on your computer:</strong>
-        download the input, XYZ, and an OS-specific script, then run OpenQP from your own installation.
+        download a runnable package, unzip it, then run OpenQP from your own installation.
       </section>
 
       <section class="prompt-section workflow-prompt">
@@ -257,23 +257,26 @@
               <p class="eyebrow">Run on this computer</p>
               <h3>Use your local OpenQP installation</h3>
               <p>
-                Place the downloaded `.inp`, `.xyz`, and script in the same folder. The command below runs
-                `openqp` from your PATH and writes output into `openqp-results`. Nothing is uploaded.
+                Download a runnable package with the `.inp`, `.xyz`, launcher script, and README. Keep the
+                files together; the launcher runs `openqp` from your PATH and writes output into `openqp-results`.
+                Nothing is uploaded.
               </p>
             </div>
             <label>
               Operating system
               <select id="localRunOs">
-                <option value="bash">macOS or Linux shell</option>
+                <option value="macos">macOS double-click launcher</option>
+                <option value="bash">Linux shell script</option>
                 <option value="powershell">Windows PowerShell</option>
                 <option value="cmd">Windows Command Prompt</option>
               </select>
             </label>
             <pre id="localRunCommand" aria-label="Local OpenQP run command"></pre>
             <div class="download-row tight-row">
+              <button class="button compact" id="downloadRunPackage" type="button">Download runnable package</button>
               <button class="button secondary compact" id="downloadInput" type="button">Download .inp</button>
               <button class="button secondary compact" id="downloadXyz" type="button">Download .xyz</button>
-              <button class="button compact" id="downloadRunScript" type="button">Download run script</button>
+              <button class="button secondary compact" id="downloadRunScript" type="button">Download run script</button>
               <button class="button secondary compact" id="copyLocalCommand" type="button">Copy run command</button>
             </div>
             <p class="microcopy" id="localRunStatus">Local files stay on your computer. Nothing is uploaded for this run path.</p>
@@ -304,6 +307,6 @@
       <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
     </footer>
-    <script type="module" src="/assets/app.js?v=20260614-run-flow"></script>
+    <script type="module" src="/assets/app.js?v=20260614-run-package"></script>
   </body>
 </html>

@@ -858,6 +858,7 @@ function captureWorkflowDom() {
     viewerDataStatus: document.querySelector("#viewerDataStatus"),
     localRunOs: document.querySelector("#localRunOs"),
     localRunCommand: document.querySelector("#localRunCommand"),
+    downloadRunPackage: document.querySelector("#downloadRunPackage"),
     copyLocalCommand: document.querySelector("#copyLocalCommand"),
     downloadRunScript: document.querySelector("#downloadRunScript"),
     localRunStatus: document.querySelector("#localRunStatus")
@@ -947,6 +948,7 @@ function setupBuilderEvents() {
   document.querySelector("#downloadXyz")?.addEventListener("click", downloadXyz);
   document.querySelector("#copyInput")?.addEventListener("click", copyInput);
   dom.localRunOs?.addEventListener("change", updateLocalRunPanel);
+  dom.downloadRunPackage?.addEventListener("click", downloadRunPackage);
   dom.copyLocalCommand?.addEventListener("click", copyLocalCommand);
   dom.downloadRunScript?.addEventListener("click", downloadRunScript);
   detectPreferredLocalRunOs();
@@ -1022,8 +1024,11 @@ function showLocalRunStep() {
   const target = document.querySelector("#local-run");
   target?.scrollIntoView({ behavior: "smooth", block: "start" });
   if (dom.localRunStatus) {
+    const script = localRunScriptName();
     dom.localRunStatus.dataset.state = "ok";
-    dom.localRunStatus.textContent = "Run files are prepared. Download the .inp, .xyz, and run script before starting OpenQP locally.";
+    dom.localRunStatus.textContent = selectedLocalRunOs() === "macos"
+      ? `Run package is ready. Download ${localRunPackageName()}, unzip it, then double-click ${script}.`
+      : `Run files are ready. Download the runnable package, unzip it, then run ${script}.`;
   }
 }
 
@@ -1566,7 +1571,7 @@ function addAtoms(atoms, scale) {
   const atomGeometryCache = new Map();
   for (const atom of atoms) {
     const style = atomStyles[atom.symbol] || fallbackAtom;
-    const radius = atomRadiusForStyle(style);
+    const radius = atomRadiusForStyle(style, scale);
     const cacheKey = `${viewerState.style}-${atom.symbol}-${radius}`;
     if (!atomGeometryCache.has(cacheKey)) atomGeometryCache.set(cacheKey, new THREE.SphereGeometry(radius, 32, 20));
     const material = new THREE.MeshStandardMaterial({ color: style.color, roughness: 0.36, metalness: 0.04 });
@@ -1583,10 +1588,10 @@ function addAtoms(atoms, scale) {
   }
 }
 
-function atomRadiusForStyle(style) {
-  if (viewerState.style === "space-fill") return Math.max(0.34, style.vdw * 0.28);
+function atomRadiusForStyle(style, moleculeScale = 1) {
+  if (viewerState.style === "space-fill") return Math.max(0.38, Math.min(style.vdw * moleculeScale * 0.56, 1.45));
   if (viewerState.style === "wire") return 0.08;
-  return style.radius;
+  return Math.max(0.11, Math.min(style.radius * moleculeScale, style.radius));
 }
 
 function renderFallbackMolecule(atoms = parseXYZ(xyzBody())) {
@@ -1908,13 +1913,18 @@ function renderPreview() {
 }
 
 function downloadFile(filename, content, type) {
-  const blob = new Blob([content], { type });
+  downloadBlob(filename, new Blob([content], { type }));
+}
+
+function downloadBlob(filename, blob) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  document.body.append(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function downloadInput() {
@@ -1933,6 +1943,7 @@ function detectPreferredLocalRunOs() {
     navigator.userAgent || ""
   ].join(" ").toLowerCase();
   if (platform.includes("win")) dom.localRunOs.value = "powershell";
+  else if (platform.includes("mac")) dom.localRunOs.value = "macos";
   else dom.localRunOs.value = "bash";
   updateLocalRunPanel();
 }
@@ -1954,6 +1965,12 @@ function selectedLocalRunOs() {
 
 function localRunCommand(os = selectedLocalRunOs()) {
   const files = localRunFileNames();
+  if (os === "macos") {
+    return [
+      `Unzip ${localRunPackageName()} and double-click ${localRunScriptName(os)}.`,
+      `Output will be written to ${files.resultDir}/${files.output}.`
+    ].join("\n");
+  }
   if (os === "powershell") {
     return [
       `New-Item -ItemType Directory -Force -Path ".\\${files.resultDir}" | Out-Null`,
@@ -2033,6 +2050,7 @@ function localRunScript(os = selectedLocalRunOs()) {
 
 function localRunScriptName(os = selectedLocalRunOs()) {
   const job = safeJobName();
+  if (os === "macos") return `run_${job}.command`;
   if (os === "powershell") return `run_${job}.ps1`;
   if (os === "cmd") return `run_${job}.bat`;
   return `run_${job}.sh`;
@@ -2054,9 +2072,152 @@ function updateLocalRunPanel() {
   if (dom.localRunStatus) {
     const files = localRunFileNames();
     const script = localRunScriptName();
-    dom.localRunStatus.textContent =
-      `Download ${files.input}, ${files.xyz}, and ${script}; keep them together before running.`;
+    if (selectedLocalRunOs() === "macos") {
+      dom.localRunStatus.textContent =
+        `Download ${localRunPackageName()}, unzip it, then double-click ${script}.`;
+    } else {
+      dom.localRunStatus.textContent =
+        `Download ${files.input}, ${files.xyz}, and ${script}; keep them together before running.`;
+    }
   }
+}
+
+function localRunPackageName() {
+  return `${safeJobName()}_openqp_run.zip`;
+}
+
+function localRunPackageFiles() {
+  const os = selectedLocalRunOs();
+  const files = localRunFileNames();
+  const scriptName = localRunScriptName(os);
+  const readmeLines = [
+    "OpenQP local run package",
+    "",
+    `Job: ${files.job}`,
+    "",
+    `Files in this package:`,
+    `- ${files.input}: generated OpenQP input`,
+    `- ${files.xyz}: molecular coordinates`,
+    `- ${scriptName}: local launcher script`,
+    "",
+    os === "macos"
+      ? `On macOS, unzip this package and double-click ${scriptName}.`
+      : `Keep these files in one folder and run ${scriptName} from that folder.`,
+    "The launcher expects the openqp command to be installed and available on PATH.",
+    `Output will be written to ${files.resultDir}/${files.output}.`,
+    "",
+    "Nothing is uploaded by this local run path."
+  ];
+  return [
+    { name: files.input, content: renderInput(), type: "text/plain;charset=utf-8" },
+    { name: files.xyz, content: `${xyzBody()}\n`, type: "chemical/x-xyz" },
+    { name: scriptName, content: localRunScript(os), type: localRunScriptType(os), executable: ["macos", "bash"].includes(os) },
+    { name: "README.txt", content: `${readmeLines.join("\n")}\n`, type: "text/plain;charset=utf-8" }
+  ];
+}
+
+function downloadRunPackage() {
+  const packageName = localRunPackageName();
+  const blob = zipFiles(localRunPackageFiles());
+  downloadBlob(packageName, blob);
+  const script = localRunScriptName();
+  const nextStep = selectedLocalRunOs() === "macos"
+    ? `Unzip ${packageName}, then double-click ${script}.`
+    : `Unzip ${packageName}, then run ${script} from that folder.`;
+  setStatusText(dom.localRunStatus, nextStep, "ok");
+}
+
+function zipFiles(files) {
+  const encoder = new TextEncoder();
+  const now = new Date();
+  const { time, date } = dosDateTime(now);
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const nameBytes = encoder.encode(file.name);
+    const dataBytes = typeof file.content === "string" ? encoder.encode(file.content) : file.content;
+    const crc = crc32(dataBytes);
+    const localHeader = new Uint8Array(30 + nameBytes.length);
+    const localView = new DataView(localHeader.buffer);
+    localView.setUint32(0, 0x04034b50, true);
+    localView.setUint16(4, 20, true);
+    localView.setUint16(6, 0x0800, true);
+    localView.setUint16(8, 0, true);
+    localView.setUint16(10, time, true);
+    localView.setUint16(12, date, true);
+    localView.setUint32(14, crc, true);
+    localView.setUint32(18, dataBytes.length, true);
+    localView.setUint32(22, dataBytes.length, true);
+    localView.setUint16(26, nameBytes.length, true);
+    localHeader.set(nameBytes, 30);
+    localParts.push(localHeader, dataBytes);
+
+    const centralHeader = new Uint8Array(46 + nameBytes.length);
+    const centralView = new DataView(centralHeader.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint16(4, 0x0314, true);
+    centralView.setUint16(6, 20, true);
+    centralView.setUint16(8, 0x0800, true);
+    centralView.setUint16(10, 0, true);
+    centralView.setUint16(12, time, true);
+    centralView.setUint16(14, date, true);
+    centralView.setUint32(16, crc, true);
+    centralView.setUint32(20, dataBytes.length, true);
+    centralView.setUint32(24, dataBytes.length, true);
+    centralView.setUint16(28, nameBytes.length, true);
+    centralView.setUint16(30, 0, true);
+    centralView.setUint16(32, 0, true);
+    centralView.setUint16(34, 0, true);
+    centralView.setUint16(36, 0, true);
+    centralView.setUint32(38, (file.executable ? 0o100755 : 0o100644) * 0x10000, true);
+    centralView.setUint32(42, offset, true);
+    centralHeader.set(nameBytes, 46);
+    centralParts.push(centralHeader);
+
+    offset += localHeader.length + dataBytes.length;
+  }
+
+  const centralOffset = offset;
+  const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+  const endRecord = new Uint8Array(22);
+  const endView = new DataView(endRecord.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(8, files.length, true);
+  endView.setUint16(10, files.length, true);
+  endView.setUint32(12, centralSize, true);
+  endView.setUint32(16, centralOffset, true);
+
+  return new Blob([...localParts, ...centralParts, endRecord], { type: "application/zip" });
+}
+
+function dosDateTime(value) {
+  const year = Math.max(value.getFullYear(), 1980);
+  return {
+    time: (value.getHours() << 11) | (value.getMinutes() << 5) | Math.floor(value.getSeconds() / 2),
+    date: ((year - 1980) << 9) | ((value.getMonth() + 1) << 5) | value.getDate()
+  };
+}
+
+let crc32Lookup;
+
+function crc32(bytes) {
+  if (!crc32Lookup) {
+    crc32Lookup = new Uint32Array(256);
+    for (let index = 0; index < 256; index += 1) {
+      let current = index;
+      for (let bit = 0; bit < 8; bit += 1) {
+        current = current & 1 ? 0xedb88320 ^ (current >>> 1) : current >>> 1;
+      }
+      crc32Lookup[index] = current >>> 0;
+    }
+  }
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc = crc32Lookup[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 async function copyLocalCommand() {

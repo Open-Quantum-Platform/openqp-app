@@ -25,7 +25,7 @@
         <a href="#settings">Settings</a>
         <a href="#viewer">3D viewer</a>
         <a href="#download">Download</a>
-        <a href="#local-run">Run locally</a>
+        <a href="#local-run">Run on computer</a>
         <a href="/analysis.html">Analyze output</a>
       </nav>
     </header>
@@ -49,8 +49,8 @@
       </section>
 
       <section class="notice" role="status">
-        <strong>Local run is the default:</strong>
-        download the input, XYZ, and an OS-specific run script. Optional cloud execution remains capacity-limited.
+        <strong>Runs stay on your computer:</strong>
+        download the input, XYZ, and an OS-specific script, then run OpenQP from your own installation.
       </section>
 
       <section class="prompt-section workflow-prompt">
@@ -260,11 +260,11 @@
           </div>
           <div class="local-run-panel" id="local-run">
             <div class="section-title small-title">
-              <p class="eyebrow">Run locally</p>
-              <h3>Use your own OpenQP installation</h3>
+              <p class="eyebrow">Run on this computer</p>
+              <h3>Use your local OpenQP installation</h3>
               <p>
-                Place the downloaded `.inp`, `.xyz`, and script in the same folder. The script runs the
-                `openqp` command from your PATH and writes output into `openqp-results`.
+                Place the downloaded `.inp`, `.xyz`, and script in the same folder. The command below runs
+                `openqp` from your PATH and writes output into `openqp-results`. Nothing is uploaded.
               </p>
             </div>
             <label>
@@ -277,7 +277,7 @@
             </label>
             <pre id="localRunCommand" aria-label="Local OpenQP run command"></pre>
             <div class="download-row tight-row">
-              <button class="button secondary compact" id="copyLocalCommand" type="button">Copy command</button>
+              <button class="button compact" id="copyLocalCommand" type="button">Copy run command</button>
               <button class="button secondary compact" id="downloadRunScript" type="button">Download run script</button>
             </div>
             <p class="microcopy" id="localRunStatus">Local files stay on your computer. Nothing is uploaded for this run path.</p>
@@ -291,70 +291,6 @@
           </div>
         </section>
       </section>
-
-      <section class="compute-section" id="compute">
-        <div class="panel compute-panel">
-          <div class="section-title">
-            <p class="eyebrow">Optional cloud run</p>
-            <h2>Cloud execution is limited</h2>
-            <p>
-              Local execution is the default. If an OpenQP worker is available later, online execution
-              will use pre-approved accounts, accept only small jobs, and run one job at a time.
-            </p>
-          </div>
-
-          <div class="compute-limits" aria-label="Online calculation limits">
-            <div><span>Global worker</span><strong>1 running job</strong></div>
-            <div><span>Per account</span><strong>1 active job</strong></div>
-            <div><span>General molecule</span><strong>24 atoms max</strong></div>
-            <div><span>Frequency/property</span><strong>12 atoms max</strong></div>
-          </div>
-
-          <div class="compute-layout">
-            <form class="compute-auth" id="computeAuthForm">
-              <div class="section-title small-title">
-                <p class="eyebrow">Account</p>
-                <h3>Worker login</h3>
-              </div>
-              <label>
-                Email
-                <input id="computeEmail" type="email" autocomplete="email" required />
-              </label>
-              <label>
-                Password
-                <input id="computePassword" type="password" autocomplete="current-password" required />
-              </label>
-              <div class="download-row tight-row">
-                <button class="button compact" id="computeLogin" type="button">Login</button>
-                <button class="button secondary compact" id="computeLogout" type="button" hidden>Logout</button>
-              </div>
-              <p class="microcopy" id="computeAuthStatus">Only provisioned worker accounts can submit online jobs.</p>
-            </form>
-
-            <div class="compute-submit">
-              <div class="section-title small-title">
-                <p class="eyebrow">Submission</p>
-                <h3>Review limits before running</h3>
-              </div>
-              <ul class="compute-checks" id="computeChecks"></ul>
-              <div class="download-row tight-row">
-                <button class="button" id="submitComputeJob" type="button">Submit small job</button>
-                <button class="button secondary" id="refreshComputeJob" type="button">Refresh status</button>
-              </div>
-              <p class="microcopy" id="computeStatus">Optional worker endpoint: https://api.openqp.org</p>
-            </div>
-          </div>
-
-          <div class="result-preview compute-output">
-            <p class="eyebrow">Online job status</p>
-            <h3 id="computeJobTitle">No active job</h3>
-            <ul id="computeJobList">
-              <li>Download-only input generation remains available without login.</li>
-            </ul>
-            <pre id="computeJobOutput">Submit a small job after login to see status and output summary here.</pre>
-          </div>
-        </div>
-      </section>
     </main>
 
     <footer>
@@ -363,6 +299,6 @@
       <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
     </footer>
-    <script type="module" src="/assets/app.js?v=20260614-viewer-resize"></script>
+    <script type="module" src="/assets/app.js?v=20260614-local-only"></script>
   </body>
 </html>

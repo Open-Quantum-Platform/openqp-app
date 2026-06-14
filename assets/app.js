@@ -627,10 +627,7 @@ const functionalOptions = [
 
 const state = {
   workflow: workflows[0],
-  analysisXYZ: molecules.caffeine.xyz,
-  computeToken: sessionStorage.getItem("openqpComputeToken") || "",
-  computeJobId: sessionStorage.getItem("openqpComputeJobId") || "",
-  computeHealth: "unknown"
+  analysisXYZ: molecules.caffeine.xyz
 };
 
 const viewerState = {
@@ -639,36 +636,6 @@ const viewerState = {
   numbers: false,
   axis: false,
   spin: true
-};
-
-const computeApiBase = (
-  window.OPENQP_COMPUTE_API ||
-  localStorage.getItem("openqpComputeApiBase") ||
-  "https://api.openqp.org"
-).replace(/\/+$/, "");
-const computeAllowedWorkflows = new Set([
-  "single-point",
-  "dft-gradient",
-  "tddft",
-  "tdhf-gradient",
-  "sf-tddft",
-  "sf-tddft-gradient",
-  "mrsf",
-  "mrsf-gradient",
-  "hessian",
-  "ir",
-  "raman",
-  "nmr",
-  "pcm",
-  "orbitals-density"
-]);
-const computeSmallBasis = new Set(["STO-3G", "3-21G", "6-31G", "6-31G(d)", "6-31G*", "cc-pVDZ", "def2-SVP"]);
-const computeLimits = {
-  maxAtoms: 24,
-  maxPropertyAtoms: 12,
-  maxExcitedAtoms: 10,
-  maxStates: 5,
-  maxInputBytes: 32768
 };
 
 let renderer;
@@ -889,18 +856,6 @@ function captureWorkflowDom() {
     viewerDataFile: document.querySelector("#viewerDataFile"),
     viewerDataInput: document.querySelector("#viewerDataInput"),
     viewerDataStatus: document.querySelector("#viewerDataStatus"),
-    computeEmail: document.querySelector("#computeEmail"),
-    computePassword: document.querySelector("#computePassword"),
-    computeLogin: document.querySelector("#computeLogin"),
-    computeLogout: document.querySelector("#computeLogout"),
-    computeAuthStatus: document.querySelector("#computeAuthStatus"),
-    computeChecks: document.querySelector("#computeChecks"),
-    submitComputeJob: document.querySelector("#submitComputeJob"),
-    refreshComputeJob: document.querySelector("#refreshComputeJob"),
-    computeStatus: document.querySelector("#computeStatus"),
-    computeJobTitle: document.querySelector("#computeJobTitle"),
-    computeJobList: document.querySelector("#computeJobList"),
-    computeJobOutput: document.querySelector("#computeJobOutput"),
     localRunOs: document.querySelector("#localRunOs"),
     localRunCommand: document.querySelector("#localRunCommand"),
     copyLocalCommand: document.querySelector("#copyLocalCommand"),
@@ -994,12 +949,7 @@ function setupBuilderEvents() {
   dom.localRunOs?.addEventListener("change", updateLocalRunPanel);
   dom.copyLocalCommand?.addEventListener("click", copyLocalCommand);
   dom.downloadRunScript?.addEventListener("click", downloadRunScript);
-  dom.computeLogin?.addEventListener("click", handleComputeAuth);
-  dom.computeLogout?.addEventListener("click", logoutCompute);
-  dom.submitComputeJob?.addEventListener("click", submitComputeJob);
-  dom.refreshComputeJob?.addEventListener("click", refreshComputeJob);
   detectPreferredLocalRunOs();
-  syncComputeUi();
 }
 
 function replaceWorkflowUrl(workflowId) {
@@ -1945,7 +1895,6 @@ function renderPreview() {
   renderResultPreview();
   updateLocalRunPanel();
   updateMoleculeViewer();
-  updateComputeChecks();
 }
 
 function downloadFile(filename, content, type) {
@@ -2148,244 +2097,6 @@ async function copyInput() {
   }
   button.textContent = copied ? "Copied" : "Text selected";
   setTimeout(() => { button.textContent = original; }, 1200);
-}
-
-function syncComputeUi() {
-  if (!dom.computeAuthStatus) return;
-  const loggedIn = Boolean(state.computeToken);
-  const workerOnline = state.computeHealth === "online";
-  const authText = workerOnline
-    ? (loggedIn ? "Logged in for small online submissions." : "Login with a provisioned worker account to submit a small online job.")
-    : (state.computeHealth === "offline" ? "Online worker is not available yet. Downloads still work." : "Checking online worker availability...");
-  setStatusText(dom.computeAuthStatus, authText, workerOnline && loggedIn ? "ok" : "");
-  if (dom.computeLogin) dom.computeLogin.hidden = loggedIn;
-  if (dom.computeLogout) dom.computeLogout.hidden = !loggedIn;
-  if (dom.computeLogin) dom.computeLogin.disabled = !workerOnline;
-  if (dom.computeEmail) dom.computeEmail.disabled = loggedIn || !workerOnline;
-  if (dom.computePassword) dom.computePassword.disabled = loggedIn || !workerOnline;
-  if (dom.computeStatus) dom.computeStatus.textContent = `Worker endpoint: ${computeApiBase}`;
-  updateComputeChecks();
-  if (state.computeHealth === "unknown") checkComputeHealth();
-  if (state.computeHealth === "online" && state.computeJobId) refreshComputeJob();
-}
-
-function computeValidation() {
-  if (!dom.preview) return { errors: [], checks: [] };
-  const atoms = parseXYZ(xyzBody());
-  const inputText = renderInput();
-  const inputBytes = new TextEncoder().encode(inputText).length;
-  const states = Number(dom.states?.value || 0);
-  const workflow = state.workflow;
-  const isPropertyWorkflow = ["hessian", "ir", "raman", "nmr"].includes(workflow.id);
-  const isExcitedWorkflow = inputMethodForWorkflow(workflow) === "tdhf";
-  const basisOk = computeSmallBasis.has(dom.basis?.value || "");
-  const allowed = computeAllowedWorkflows.has(workflow.id);
-  const checks = [
-    {
-      ok: allowed,
-      text: allowed ? "Workflow is allowed for the small worker." : "This workflow is download-only for now."
-    },
-    {
-      ok: atoms.length > 0 && atoms.length <= computeLimits.maxAtoms,
-      text: `${atoms.length} atom${atoms.length === 1 ? "" : "s"}; limit is ${computeLimits.maxAtoms}.`
-    },
-    {
-      ok: !isPropertyWorkflow || atoms.length <= computeLimits.maxPropertyAtoms,
-      text: isPropertyWorkflow ? `Property/frequency workflows are limited to ${computeLimits.maxPropertyAtoms} atoms.` : "No property-specific atom limit applies."
-    },
-    {
-      ok: !isExcitedWorkflow || atoms.length <= computeLimits.maxExcitedAtoms,
-      text: isExcitedWorkflow ? `TDHF/SF/MRSF workflows are limited to ${computeLimits.maxExcitedAtoms} atoms.` : "No excited-state atom limit applies."
-    },
-    {
-      ok: states <= computeLimits.maxStates,
-      text: `${states} requested state${states === 1 ? "" : "s"}; limit is ${computeLimits.maxStates}.`
-    },
-    {
-      ok: basisOk,
-      text: basisOk ? `Basis ${dom.basis?.value} is allowed.` : "Choose STO-3G, 3-21G, 6-31G, 6-31G(d), cc-pVDZ, or def2-SVP for online runs."
-    },
-    {
-      ok: inputBytes <= computeLimits.maxInputBytes,
-      text: `Input size ${inputBytes} bytes; limit is ${computeLimits.maxInputBytes}.`
-    }
-  ];
-  return {
-    checks,
-    errors: checks.filter((check) => !check.ok).map((check) => check.text)
-  };
-}
-
-function updateComputeChecks() {
-  if (!dom.computeChecks) return;
-  const validation = computeValidation();
-  dom.computeChecks.replaceChildren(
-    ...validation.checks.map((check) => {
-      const li = document.createElement("li");
-      li.textContent = check.text;
-      li.dataset.state = check.ok ? "ok" : "error";
-      return li;
-    })
-  );
-  const canSubmit = state.computeHealth === "online" && Boolean(state.computeToken) && validation.errors.length === 0;
-  if (dom.submitComputeJob) dom.submitComputeJob.disabled = !canSubmit;
-  if (dom.computeStatus && validation.errors.length > 0) {
-    setStatusText(dom.computeStatus, "This input is not eligible for online execution. Download remains available.", "error");
-  } else if (dom.computeStatus) {
-    const statusText = state.computeHealth === "unknown"
-      ? "Checking online worker availability..."
-      : state.computeHealth === "offline"
-        ? "Online worker is not available yet. Download remains available."
-        : state.computeToken ? "Ready for one small online submission." : `Worker endpoint: ${computeApiBase}`;
-    setStatusText(dom.computeStatus, statusText, state.computeHealth === "online" && state.computeToken ? "ok" : "");
-  }
-}
-
-async function handleComputeAuth() {
-  if (state.computeHealth !== "online") {
-    setStatusText(dom.computeAuthStatus, "Online worker is not available yet. Download files locally for now.", "error");
-    return;
-  }
-  const email = dom.computeEmail?.value.trim();
-  const password = dom.computePassword?.value || "";
-  if (!email || !password) {
-    setStatusText(dom.computeAuthStatus, "Enter email and password.", "error");
-    return;
-  }
-
-  try {
-    setStatusText(dom.computeAuthStatus, "Logging in...", "");
-    const response = await computeRequest("/auth/login", {
-      method: "POST",
-      body: { email, password },
-      auth: false
-    });
-    state.computeToken = response.token;
-    sessionStorage.setItem("openqpComputeToken", response.token);
-    if (dom.computePassword) dom.computePassword.value = "";
-    syncComputeUi();
-  } catch (error) {
-    setStatusText(dom.computeAuthStatus, error.message, "error");
-  }
-}
-
-async function checkComputeHealth() {
-  try {
-    const response = await fetch(`${computeApiBase}/health`, { method: "GET" });
-    if (!response.ok) throw new Error(`Worker health returned ${response.status}.`);
-    state.computeHealth = "online";
-  } catch (error) {
-    state.computeHealth = "offline";
-  }
-  syncComputeUi();
-}
-
-function logoutCompute() {
-  state.computeToken = "";
-  state.computeJobId = "";
-  sessionStorage.removeItem("openqpComputeToken");
-  sessionStorage.removeItem("openqpComputeJobId");
-  if (dom.computeEmail) dom.computeEmail.disabled = false;
-  if (dom.computePassword) {
-    dom.computePassword.disabled = false;
-    dom.computePassword.value = "";
-  }
-  renderComputeJob(null);
-  syncComputeUi();
-}
-
-async function submitComputeJob() {
-  const validation = computeValidation();
-  if (validation.errors.length > 0) {
-    setStatusText(dom.computeStatus, validation.errors[0], "error");
-    updateComputeChecks();
-    return;
-  }
-  try {
-    setStatusText(dom.computeStatus, "Submitting one small job...", "");
-    const job = await computeRequest("/jobs", {
-      method: "POST",
-      body: {
-        job_name: safeJobName(),
-        workflow_id: state.workflow.id,
-        input_text: renderInput(),
-        xyz_text: xyzBody()
-      }
-    });
-    state.computeJobId = job.id;
-    sessionStorage.setItem("openqpComputeJobId", job.id);
-    renderComputeJob(job);
-    setStatusText(dom.computeStatus, "Job accepted. The worker runs one job at a time.", "ok");
-  } catch (error) {
-    setStatusText(dom.computeStatus, error.message, "error");
-  }
-}
-
-async function refreshComputeJob() {
-  if (state.computeHealth !== "online") {
-    state.computeHealth = "unknown";
-    syncComputeUi();
-    return;
-  }
-  if (!state.computeToken) {
-    syncComputeUi();
-    return;
-  }
-  try {
-    const path = state.computeJobId ? `/jobs/${encodeURIComponent(state.computeJobId)}` : "/jobs/active";
-    const job = await computeRequest(path, { method: "GET" });
-    if (job?.id) {
-      state.computeJobId = job.id;
-      sessionStorage.setItem("openqpComputeJobId", job.id);
-    }
-    renderComputeJob(job);
-  } catch (error) {
-    if (dom.computeStatus) setStatusText(dom.computeStatus, error.message, "error");
-  }
-}
-
-function renderComputeJob(job) {
-  if (!dom.computeJobTitle || !dom.computeJobList || !dom.computeJobOutput) return;
-  if (!job?.id) {
-    dom.computeJobTitle.textContent = "No active job";
-    dom.computeJobList.replaceChildren(listItem("Download-only input generation remains available without login."));
-    dom.computeJobOutput.textContent = "Submit a small job after login to see status and output summary here.";
-    return;
-  }
-  dom.computeJobTitle.textContent = `${job.job_name || "OpenQP job"}: ${job.status}`;
-  dom.computeJobList.replaceChildren(
-    listItem(`Job ID: ${job.id}`),
-    listItem(`Workflow: ${job.workflow_id || state.workflow.id}`),
-    listItem(`Submitted: ${job.created_at || "unknown"}`),
-    listItem(`Status: ${job.status}`)
-  );
-  dom.computeJobOutput.textContent = job.output_excerpt || job.error || "The worker has not returned output yet.";
-}
-
-function listItem(text) {
-  const li = document.createElement("li");
-  li.textContent = text;
-  return li;
-}
-
-async function computeRequest(path, options = {}) {
-  const headers = { "Content-Type": "application/json" };
-  if (options.auth !== false && state.computeToken) headers.Authorization = `Bearer ${state.computeToken}`;
-  const response = await fetch(`${computeApiBase}${path}`, {
-    method: options.method || "GET",
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined
-  });
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch (error) {
-    payload = null;
-  }
-  if (!response.ok) {
-    throw new Error(payload?.detail || payload?.error || `Compute worker returned ${response.status}.`);
-  }
-  return payload;
 }
 
 async function loadViewerDataText(rawText, fileName) {

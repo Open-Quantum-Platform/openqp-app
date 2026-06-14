@@ -786,88 +786,12 @@ textarea {
   font-size: 0.9rem;
 }
 
-.compute-section {
-  padding: 0 clamp(18px, 5vw, 72px) clamp(42px, 6vw, 80px);
-}
-
-.compute-panel {
-  display: grid;
-  gap: 18px;
-}
-
-.compute-panel .section-title p:not(.eyebrow) {
-  max-width: 780px;
-  color: var(--muted);
-}
-
 .small-title {
   margin-bottom: 10px;
 }
 
 .small-title h3 {
   font-size: 1.05rem;
-}
-
-.compute-limits {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.compute-limits div {
-  display: grid;
-  gap: 5px;
-  padding: 12px;
-  background: #f8fbfa;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-
-.compute-limits span {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 780;
-}
-
-.compute-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 0.62fr) minmax(320px, 1fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.compute-auth,
-.compute-submit {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  background: #f8fbfa;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-
-.compute-checks {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.compute-checks li {
-  padding: 9px 10px;
-  background: white;
-  border: 1px solid var(--line);
-  border-left: 5px solid var(--teal);
-  border-radius: 6px;
-}
-
-.compute-checks li[data-state="error"] {
-  border-left-color: var(--coral);
-}
-
-.compute-output {
-  margin-top: 0;
 }
 
 .button:disabled {
@@ -1264,8 +1188,6 @@ footer a {
   .two-col,
   .three-col,
   .workflow-picker,
-  .compute-limits,
-  .compute-layout,
   .workflow-detail dl,
   .inline-toggles,
   .status-panel {

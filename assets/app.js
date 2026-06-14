@@ -1991,6 +1991,36 @@ function localRunCommand(os = selectedLocalRunOs()) {
 
 function localRunScript(os = selectedLocalRunOs()) {
   const files = localRunFileNames();
+  if (os === "macos") {
+    return [
+      "#!/bin/zsh",
+      "set -euo pipefail",
+      "",
+      "trap 'status=$?; if [ \"$status\" -ne 0 ]; then echo \"\"; echo \"OpenQP run failed. Press Return to close this window.\"; read -r _ || true; fi' EXIT",
+      "",
+      "cd -- \"${0:A:h}\"",
+      "",
+      "for profile in \"$HOME/.zprofile\" \"$HOME/.zshrc\"; do",
+      "  if [ -r \"$profile\" ]; then",
+      "    source \"$profile\" >/dev/null 2>&1 || true",
+      "  fi",
+      "done",
+      "",
+      "if ! command -v openqp >/dev/null 2>&1; then",
+      "  echo \"OpenQP command not found. Install OpenQP and add the openqp command to PATH.\" >&2",
+      "  exit 1",
+      "fi",
+      "",
+      `test -f ${shellQuote(files.input)} || { echo "Missing ${files.input} in this folder." >&2; exit 1; }`,
+      `test -f ${shellQuote(files.xyz)} || { echo "Missing ${files.xyz} in this folder." >&2; exit 1; }`,
+      `mkdir -p ${shellQuote(files.resultDir)}`,
+      `openqp ${shellQuote(`./${files.input}`)} > ${shellQuote(`${files.resultDir}/${files.output}`)} 2>&1`,
+      `echo "OpenQP finished. Output: ${files.resultDir}/${files.output}"`,
+      "echo \"\"",
+      "echo \"Press Return to close this window.\"",
+      "read -r _ || true"
+    ].join("\n") + "\n";
+  }
   if (os === "powershell") {
     return [
       "$ErrorActionPreference = \"Stop\"",
@@ -2034,6 +2064,8 @@ function localRunScript(os = selectedLocalRunOs()) {
   return [
     "#!/usr/bin/env bash",
     "set -euo pipefail",
+    "script_dir=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"",
+    "cd \"$script_dir\"",
     "",
     "if ! command -v openqp >/dev/null 2>&1; then",
     "  echo \"OpenQP command not found. Install OpenQP and add the openqp command to PATH.\" >&2",

@@ -25,6 +25,7 @@
         <a href="#settings">Settings</a>
         <a href="#viewer">3D viewer</a>
         <a href="#download">Download</a>
+        <a href="#compute">Run online</a>
         <a href="/analysis.html">Analyze output</a>
       </nav>
     </header>
@@ -48,8 +49,8 @@
       </section>
 
       <section class="notice" role="status">
-        <strong>Phase 1 boundary:</strong>
-        this page prepares input and geometry files only. Run OpenQP locally or on your own cluster, then use the analysis page for output inspection.
+        <strong>Compute boundary:</strong>
+        downloads work without an account. Online execution requires login and is limited to small, one-at-a-time jobs.
       </section>
 
       <section class="prompt-section workflow-prompt">
@@ -262,9 +263,74 @@
             <h3 id="resultTitle">Local run results</h3>
             <ul id="resultList"></ul>
             <pre id="resultSample"></pre>
-            <span>Preview only: Phase 1 prepares inputs and does not execute OpenQP online.</span>
+            <span>Preview only: use the online run panel below or download files for your own OpenQP run.</span>
           </div>
         </section>
+      </section>
+
+      <section class="compute-section" id="compute">
+        <div class="panel compute-panel">
+          <div class="section-title">
+            <p class="eyebrow">Small online run</p>
+            <h2>Submit one controlled OpenQP job</h2>
+            <p>
+              Online execution requires an account. The worker accepts only small jobs,
+              runs one job at a time, and rechecks limits on the server before starting OpenQP.
+            </p>
+          </div>
+
+          <div class="compute-limits" aria-label="Online calculation limits">
+            <div><span>Global worker</span><strong>1 running job</strong></div>
+            <div><span>Per account</span><strong>1 active job</strong></div>
+            <div><span>General molecule</span><strong>24 atoms max</strong></div>
+            <div><span>Frequency/property</span><strong>12 atoms max</strong></div>
+          </div>
+
+          <div class="compute-layout">
+            <form class="compute-auth" id="computeAuthForm">
+              <div class="section-title small-title">
+                <p class="eyebrow">Account</p>
+                <h3>Login or sign up</h3>
+              </div>
+              <label>
+                Email
+                <input id="computeEmail" type="email" autocomplete="email" required />
+              </label>
+              <label>
+                Password
+                <input id="computePassword" type="password" autocomplete="current-password" required />
+              </label>
+              <div class="download-row tight-row">
+                <button class="button compact" id="computeLogin" type="button">Login</button>
+                <button class="button secondary compact" id="computeSignup" type="button">Sign up</button>
+                <button class="button secondary compact" id="computeLogout" type="button" hidden>Logout</button>
+              </div>
+              <p class="microcopy" id="computeAuthStatus">Compute access is separate from input download.</p>
+            </form>
+
+            <div class="compute-submit">
+              <div class="section-title small-title">
+                <p class="eyebrow">Submission</p>
+                <h3>Review limits before running</h3>
+              </div>
+              <ul class="compute-checks" id="computeChecks"></ul>
+              <div class="download-row tight-row">
+                <button class="button" id="submitComputeJob" type="button">Submit small job</button>
+                <button class="button secondary" id="refreshComputeJob" type="button">Refresh status</button>
+              </div>
+              <p class="microcopy" id="computeStatus">Worker endpoint: https://api.openqp.org</p>
+            </div>
+          </div>
+
+          <div class="result-preview compute-output">
+            <p class="eyebrow">Online job status</p>
+            <h3 id="computeJobTitle">No active job</h3>
+            <ul id="computeJobList">
+              <li>Download-only input generation remains available without login.</li>
+            </ul>
+            <pre id="computeJobOutput">Submit a small job after login to see status and output summary here.</pre>
+          </div>
+        </div>
       </section>
     </main>
 
@@ -274,6 +340,6 @@
       <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
     </footer>
-    <script type="module" src="/assets/app.js?v=20260614-simple-3d"></script>
+    <script type="module" src="/assets/app.js?v=20260614-compute-gate"></script>
   </body>
 </html>

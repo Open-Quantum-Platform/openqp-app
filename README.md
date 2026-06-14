@@ -1,14 +1,20 @@
-# OpenQP Web Phase 1
+# OpenQP Web
 
-Static app for `app.openqp.org`.
+Frontend for `app.openqp.org`.
 
-Phase 1 boundaries:
+Baseline behavior:
 
-- no backend compute
-- no user login
-- no browser API keys
-- no OpenQP jobs submitted online
 - browser-only OpenQP input and XYZ file generation
+- downloadable `.inp` and `.xyz` files without login
+- local 3D structure/data inspection in the browser
+- no OCI credentials, OpenQP worker secrets, or API keys in browser code
+
+Optional online execution:
+
+- the workflow page can submit small jobs to `https://api.openqp.org`
+- online execution requires a worker account created by the worker API
+- the worker accepts one active job globally and one active job per account
+- the server rechecks size, workflow, atom-count, basis, and state limits before running OpenQP
 
 Pages:
 
@@ -16,9 +22,9 @@ Pages:
   or choose one workflow example and view its details before opening the
   builder. It includes a passive 3D molecule demo, without exposing detailed
   workflow controls on the first page.
-- `/workflow.html` is the focused input builder. It integrates the Phase 1
-  generator controls, PubChem import, local data import, 3D structure controls,
-  and downloadable `.inp`/`.xyz` files.
+- `/workflow.html` is the focused input builder. It integrates generator
+  controls, PubChem import, local data import, 3D structure controls,
+  downloadable `.inp`/`.xyz` files, and the small online job panel.
 - `/analysis.html` is the local post-run inspection page for OpenQP log/out,
   XYZ, JSON, Molden geometry, and cube geometry files.
 
@@ -26,4 +32,6 @@ The only external tool fallback kept in the UI is OpenqpView for true
 cube/Molden isosurface rendering.
 
 The GitHub Pages deployment should serve the contents of this directory at the
-root of `app.openqp.org`.
+root of `app.openqp.org`. The compute API is a separate service; use
+`localStorage.setItem("openqpComputeApiBase", "http://127.0.0.1:8080")` for
+local worker testing.

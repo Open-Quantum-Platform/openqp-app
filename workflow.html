@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Focused OpenQP Web workflow builder for preparing input files and submitting small online jobs when the worker is available."
+      content="Focused OpenQP Web workflow builder for preparing local OpenQP input files and run scripts for Windows, macOS, and Linux."
     />
     <title>OpenQP Workflow Builder</title>
     <link rel="icon" href="/assets/openqp-grid.svg" type="image/svg+xml" />
@@ -17,7 +17,7 @@
         <span class="brand-mark">OQ</span>
         <span>
           <strong>Workflow Builder</strong>
-          <small>Static input preparation</small>
+          <small>Local run preparation</small>
         </span>
       </a>
       <nav aria-label="Workflow navigation">
@@ -25,7 +25,7 @@
         <a href="#settings">Settings</a>
         <a href="#viewer">3D viewer</a>
         <a href="#download">Download</a>
-        <a href="#compute">Run online</a>
+        <a href="#local-run">Run locally</a>
         <a href="/analysis.html">Analyze output</a>
       </nav>
     </header>
@@ -36,7 +36,7 @@
           <p class="eyebrow">Focused workflow</p>
           <h1 id="workflowTitle">OpenQP input builder</h1>
           <p id="workflowDetail" class="lead">
-            Build and download OpenQP input files locally in the browser. No job is submitted online.
+            Build OpenQP inputs in the browser, then run them on your own Windows, macOS, or Linux machine.
           </p>
         </div>
         <form class="workflow-switcher" id="workflowSwitchForm">
@@ -49,8 +49,8 @@
       </section>
 
       <section class="notice" role="status">
-        <strong>Compute boundary:</strong>
-        downloads work without an account. Online execution requires login and is limited to small, one-at-a-time jobs.
+        <strong>Local run is the default:</strong>
+        download the input, XYZ, and an OS-specific run script. Optional cloud execution remains capacity-limited.
       </section>
 
       <section class="prompt-section workflow-prompt">
@@ -258,12 +258,69 @@
             <button class="button secondary" id="copyInput" type="button">Copy input</button>
             <a class="button secondary" href="/analysis.html">Open analysis page</a>
           </div>
+          <div class="local-run-panel" id="local-run">
+            <div class="section-title small-title">
+              <p class="eyebrow">Run locally</p>
+              <h3>Use your own OpenQP installation</h3>
+              <p>
+                Place the downloaded `.inp`, `.xyz`, and script in the same folder. The script runs the
+                `openqp` command from your PATH and writes output into `openqp-results`.
+              </p>
+            </div>
+            <form class="local-signup" id="localSignupForm">
+              <div class="section-title small-title">
+                <p class="eyebrow">Local runner signup</p>
+                <h3>Tell us who is using OpenQP Web</h3>
+              </div>
+              <div class="two-col">
+                <label>
+                  Role
+                  <select id="localUserRole" required>
+                    <option value="">Choose role</option>
+                    <option value="student">Student</option>
+                    <option value="professor">Professor / PI</option>
+                    <option value="researcher">Postdoc / Researcher</option>
+                    <option value="industry">Industry</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label>
+                  Email
+                  <input id="localUserEmail" type="email" autocomplete="email" required />
+                </label>
+              </div>
+              <label>
+                University / Institute
+                <input id="localUserOrg" autocomplete="organization" required />
+              </label>
+              <div class="download-row tight-row">
+                <button class="button compact" id="saveLocalSignup" type="submit">Continue to local run</button>
+                <button class="button secondary compact" id="editLocalSignup" type="button" hidden>Edit signup</button>
+                <button class="button secondary compact" id="clearLocalSignup" type="button" hidden>Clear signup</button>
+              </div>
+              <p class="microcopy" id="localSignupStatus">No password is needed for local runs.</p>
+            </form>
+            <label>
+              Operating system
+              <select id="localRunOs">
+                <option value="bash">macOS or Linux shell</option>
+                <option value="powershell">Windows PowerShell</option>
+                <option value="cmd">Windows Command Prompt</option>
+              </select>
+            </label>
+            <pre id="localRunCommand" aria-label="Local OpenQP run command"></pre>
+            <div class="download-row tight-row">
+              <button class="button secondary compact" id="copyLocalCommand" type="button">Copy command</button>
+              <button class="button secondary compact" id="downloadRunScript" type="button">Download run script</button>
+            </div>
+            <p class="microcopy" id="localRunStatus">Local files stay on your computer. Nothing is uploaded for this run path.</p>
+          </div>
           <div class="result-preview" id="resultPreview">
             <p class="eyebrow">Expected local output</p>
             <h3 id="resultTitle">Local run results</h3>
             <ul id="resultList"></ul>
             <pre id="resultSample"></pre>
-            <span>Preview only: use the online run panel below or download files for your own OpenQP run.</span>
+            <span>Preview only: run the downloaded files locally, then open the analysis page with your output.</span>
           </div>
         </section>
       </section>
@@ -271,11 +328,11 @@
       <section class="compute-section" id="compute">
         <div class="panel compute-panel">
           <div class="section-title">
-            <p class="eyebrow">Small online run</p>
-            <h2>Submit one controlled OpenQP job</h2>
+            <p class="eyebrow">Optional cloud run</p>
+            <h2>Cloud execution is limited</h2>
             <p>
-              Online execution requires an account. The worker accepts only small jobs,
-              runs one job at a time, and rechecks limits on the server before starting OpenQP.
+              Local execution is the default. If an OpenQP worker is available later, online execution
+              will require an account, accept only small jobs, and run one job at a time.
             </p>
           </div>
 
@@ -318,7 +375,7 @@
                 <button class="button" id="submitComputeJob" type="button">Submit small job</button>
                 <button class="button secondary" id="refreshComputeJob" type="button">Refresh status</button>
               </div>
-              <p class="microcopy" id="computeStatus">Worker endpoint: https://api.openqp.org</p>
+              <p class="microcopy" id="computeStatus">Optional worker endpoint: https://api.openqp.org</p>
             </div>
           </div>
 
@@ -340,6 +397,6 @@
       <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
     </footer>
-    <script type="module" src="/assets/app.js?v=20260614-compute-gate"></script>
+    <script type="module" src="/assets/app.js?v=20260614-local-runner"></script>
   </body>
 </html>

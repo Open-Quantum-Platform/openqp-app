@@ -705,6 +705,55 @@ textarea {
   line-height: 1.45;
 }
 
+.local-run-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 16px;
+  background: #f3f8f5;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--green);
+  border-radius: 8px;
+}
+
+.local-run-panel pre {
+  min-height: 84px;
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+  color: #d7ece8;
+  background: #17212b;
+  border-radius: 6px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.local-signup {
+  padding: 14px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.local-signup[data-registered="true"] {
+  border-color: #c8ded2;
+  background: #fbfdfb;
+}
+
+.microcopy[data-state="error"],
+#localSignupStatus[data-state="error"],
+#localRunStatus[data-state="error"] {
+  color: #9f2f22;
+}
+
+.microcopy[data-state="ok"],
+#localSignupStatus[data-state="ok"],
+#localRunStatus[data-state="ok"] {
+  color: #28524a;
+}
+
 .result-preview {
   display: grid;
   gap: 10px;

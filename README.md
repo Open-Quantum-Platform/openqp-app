@@ -6,13 +6,19 @@ Baseline behavior:
 
 - browser-only OpenQP input and XYZ file generation
 - downloadable `.inp` and `.xyz` files without login
+- local runner signup with role, email, and university/institute before copying
+  local run commands or downloading OS-specific run scripts
+- local run scripts for macOS/Linux shell, Windows PowerShell, and Windows
+  Command Prompt
 - local 3D structure/data inspection in the browser
 - no OCI credentials, OpenQP worker secrets, or API keys in browser code
 
-Optional online execution:
+Optional API support:
 
-- the workflow page can submit small jobs to `https://api.openqp.org`
-- online execution requires a worker account created by the worker API
+- local runner signup is stored in the browser when the API is unavailable
+- when `https://api.openqp.org` is available, local runner signup can sync to
+  `/local-runners` for usage statistics
+- online execution remains optional and requires a worker account created by the worker API
 - the worker accepts one active job globally and one active job per account
 - the server rechecks size, workflow, atom-count, basis, and state limits before running OpenQP
 
@@ -24,7 +30,8 @@ Pages:
   workflow controls on the first page.
 - `/workflow.html` is the focused input builder. It integrates generator
   controls, PubChem import, local data import, 3D structure controls,
-  downloadable `.inp`/`.xyz` files, and the small online job panel.
+  downloadable `.inp`/`.xyz` files, local runner signup, cross-platform run
+  scripts, and the optional cloud job panel.
 - `/analysis.html` is the local post-run inspection page for OpenQP log/out,
   XYZ, JSON, Molden geometry, and cube geometry files.
 

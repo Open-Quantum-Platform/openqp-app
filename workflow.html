@@ -71,7 +71,8 @@
                 Plain-text request
                 <textarea id="chatPrompt" rows="4" spellcheck="true" placeholder="SF-TDDFT gradient for ethylene with BHHLYP/cc-pVDZ, 6 states"></textarea>
               </label>
-              <button class="button" type="submit">Apply to builder</button>
+              <button class="button" type="submit">Prepare run files</button>
+              <a class="button secondary" href="#local-run">Go to local run</a>
             </form>
           </div>
           <div class="prompt-examples" id="promptExamples" aria-label="Example prompts">
@@ -248,15 +249,8 @@
 
         <section class="panel preview" id="download">
           <div class="section-title">
-            <p class="eyebrow">Download</p>
-            <h2>Generated input</h2>
-          </div>
-          <textarea id="preview" spellcheck="false" aria-label="Generated OpenQP input preview"></textarea>
-          <div class="download-row">
-            <button class="button" id="downloadInput" type="button">Download .inp</button>
-            <button class="button secondary" id="downloadXyz" type="button">Download .xyz</button>
-            <button class="button secondary" id="copyInput" type="button">Copy input</button>
-            <a class="button secondary" href="/analysis.html">Open analysis page</a>
+            <p class="eyebrow">Run</p>
+            <h2>Run on this computer</h2>
           </div>
           <div class="local-run-panel" id="local-run">
             <div class="section-title small-title">
@@ -277,10 +271,21 @@
             </label>
             <pre id="localRunCommand" aria-label="Local OpenQP run command"></pre>
             <div class="download-row tight-row">
-              <button class="button compact" id="copyLocalCommand" type="button">Copy run command</button>
-              <button class="button secondary compact" id="downloadRunScript" type="button">Download run script</button>
+              <button class="button secondary compact" id="downloadInput" type="button">Download .inp</button>
+              <button class="button secondary compact" id="downloadXyz" type="button">Download .xyz</button>
+              <button class="button compact" id="downloadRunScript" type="button">Download run script</button>
+              <button class="button secondary compact" id="copyLocalCommand" type="button">Copy run command</button>
             </div>
             <p class="microcopy" id="localRunStatus">Local files stay on your computer. Nothing is uploaded for this run path.</p>
+          </div>
+          <div class="section-title small-title file-preview-title">
+            <p class="eyebrow">Generated files</p>
+            <h3>Download the input files</h3>
+          </div>
+          <textarea id="preview" spellcheck="false" aria-label="Generated OpenQP input preview"></textarea>
+          <div class="download-row">
+            <button class="button secondary" id="copyInput" type="button">Copy input</button>
+            <a class="button secondary" href="/analysis.html">Open analysis page</a>
           </div>
           <div class="result-preview" id="resultPreview">
             <p class="eyebrow">Expected local output</p>
@@ -299,6 +304,6 @@
       <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
     </footer>
-    <script type="module" src="/assets/app.js?v=20260614-local-only"></script>
+    <script type="module" src="/assets/app.js?v=20260614-run-flow"></script>
   </body>
 </html>

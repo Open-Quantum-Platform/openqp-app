@@ -813,7 +813,7 @@ function initWorkflowPage() {
   const prompt = params.get("prompt");
   if (prompt) {
     dom.chatPrompt.value = prompt;
-    handleChatPrompt(prompt, { silentUser: true });
+    handleChatPrompt(prompt, { silentUser: true, scrollToRun: true });
   }
 }
 
@@ -912,13 +912,13 @@ function setupMoleculeSelector() {
 function setupBuilderEvents() {
   dom.chatForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    await handleChatPrompt(dom.chatPrompt.value);
+    await handleChatPrompt(dom.chatPrompt.value, { scrollToRun: true });
   });
   dom.promptExamples?.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-prompt]");
     if (!button) return;
     dom.chatPrompt.value = button.dataset.prompt;
-    await handleChatPrompt(button.dataset.prompt);
+    await handleChatPrompt(button.dataset.prompt, { scrollToRun: true });
   });
   dom.form?.addEventListener("input", renderPreview);
   dom.form?.addEventListener("change", (event) => {
@@ -1015,6 +1015,16 @@ async function handleChatPrompt(rawPrompt, options = {}) {
   lastMoleculeSignature = "";
   renderPreview();
   addChatMessage("assistant", summarizePromptSuggestion(suggestion, importResult));
+  if (options.scrollToRun) showLocalRunStep();
+}
+
+function showLocalRunStep() {
+  const target = document.querySelector("#local-run");
+  target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (dom.localRunStatus) {
+    dom.localRunStatus.dataset.state = "ok";
+    dom.localRunStatus.textContent = "Run files are prepared. Download the .inp, .xyz, and run script before starting OpenQP locally.";
+  }
 }
 
 function parsePlainTextRequest(prompt) {

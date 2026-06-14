@@ -578,6 +578,8 @@ form {
 }
 
 .chat-compose {
+  display: grid;
+  gap: 10px;
   align-content: start;
 }
 
@@ -726,6 +728,10 @@ textarea {
   border: 1px solid var(--line);
   border-left: 5px solid var(--green);
   border-radius: 8px;
+}
+
+.file-preview-title {
+  margin-top: 20px;
 }
 
 .local-run-panel pre {

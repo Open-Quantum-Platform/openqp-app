@@ -625,16 +625,12 @@ const functionalOptions = [
   "BMK", "B2-PLYP", "B2GP-PLYP", "PBE0-DH", "SCAN-QIDH", "TPSS-QIDH", "TUNEDCAM"
 ];
 
-const localRunnerStorageKey = "openqpLocalRunnerProfile";
-
 const state = {
   workflow: workflows[0],
   analysisXYZ: molecules.caffeine.xyz,
   computeToken: sessionStorage.getItem("openqpComputeToken") || "",
   computeJobId: sessionStorage.getItem("openqpComputeJobId") || "",
-  computeHealth: "unknown",
-  localRunnerProfile: loadLocalRunnerProfile(),
-  localRunnerSynced: false
+  computeHealth: "unknown"
 };
 
 const viewerState = {
@@ -896,7 +892,6 @@ function captureWorkflowDom() {
     computeEmail: document.querySelector("#computeEmail"),
     computePassword: document.querySelector("#computePassword"),
     computeLogin: document.querySelector("#computeLogin"),
-    computeSignup: document.querySelector("#computeSignup"),
     computeLogout: document.querySelector("#computeLogout"),
     computeAuthStatus: document.querySelector("#computeAuthStatus"),
     computeChecks: document.querySelector("#computeChecks"),
@@ -910,15 +905,7 @@ function captureWorkflowDom() {
     localRunCommand: document.querySelector("#localRunCommand"),
     copyLocalCommand: document.querySelector("#copyLocalCommand"),
     downloadRunScript: document.querySelector("#downloadRunScript"),
-    localRunStatus: document.querySelector("#localRunStatus"),
-    localSignupForm: document.querySelector("#localSignupForm"),
-    localUserRole: document.querySelector("#localUserRole"),
-    localUserEmail: document.querySelector("#localUserEmail"),
-    localUserOrg: document.querySelector("#localUserOrg"),
-    saveLocalSignup: document.querySelector("#saveLocalSignup"),
-    editLocalSignup: document.querySelector("#editLocalSignup"),
-    clearLocalSignup: document.querySelector("#clearLocalSignup"),
-    localSignupStatus: document.querySelector("#localSignupStatus")
+    localRunStatus: document.querySelector("#localRunStatus")
   });
 }
 
@@ -1004,19 +991,14 @@ function setupBuilderEvents() {
   document.querySelector("#downloadInput")?.addEventListener("click", downloadInput);
   document.querySelector("#downloadXyz")?.addEventListener("click", downloadXyz);
   document.querySelector("#copyInput")?.addEventListener("click", copyInput);
-  dom.localSignupForm?.addEventListener("submit", handleLocalSignup);
-  dom.editLocalSignup?.addEventListener("click", editLocalSignup);
-  dom.clearLocalSignup?.addEventListener("click", clearLocalSignup);
   dom.localRunOs?.addEventListener("change", updateLocalRunPanel);
   dom.copyLocalCommand?.addEventListener("click", copyLocalCommand);
   dom.downloadRunScript?.addEventListener("click", downloadRunScript);
-  dom.computeLogin?.addEventListener("click", () => handleComputeAuth("login"));
-  dom.computeSignup?.addEventListener("click", () => handleComputeAuth("signup"));
+  dom.computeLogin?.addEventListener("click", handleComputeAuth);
   dom.computeLogout?.addEventListener("click", logoutCompute);
   dom.submitComputeJob?.addEventListener("click", submitComputeJob);
   dom.refreshComputeJob?.addEventListener("click", refreshComputeJob);
   detectPreferredLocalRunOs();
-  populateLocalSignup();
   syncComputeUi();
 }
 
@@ -1984,164 +1966,6 @@ function downloadXyz() {
   downloadFile(`${safeJobName ? safeJobName() : "openqp_structure"}.xyz`, `${xyzBody()}\n`, "chemical/x-xyz");
 }
 
-function loadLocalRunnerProfile() {
-  try {
-    const raw = localStorage.getItem(localRunnerStorageKey);
-    if (!raw) return null;
-    const profile = JSON.parse(raw);
-    return localRunnerProfileValid(profile) ? profile : null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function localRunnerProfileValid(profile = state.localRunnerProfile) {
-  if (!profile) return false;
-  return Boolean(
-    profile.role &&
-    profile.organization &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email || "")
-  );
-}
-
-function localRunnerPayload(profile = state.localRunnerProfile) {
-  return {
-    role: profile.role,
-    email: profile.email,
-    organization: profile.organization,
-    workflow_id: state.workflow.id,
-    workflow_title: state.workflow.title,
-    source: "app.openqp.org",
-    created_at: profile.createdAt || new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
-}
-
-function populateLocalSignup() {
-  if (!dom.localSignupForm) return;
-  const profile = state.localRunnerProfile;
-  if (profile) {
-    if (dom.localUserRole) dom.localUserRole.value = profile.role || "";
-    if (dom.localUserEmail) dom.localUserEmail.value = profile.email || "";
-    if (dom.localUserOrg) dom.localUserOrg.value = profile.organization || "";
-  }
-  updateLocalSignupUi();
-}
-
-function updateLocalSignupUi() {
-  if (!dom.localSignupForm) return;
-  const registered = localRunnerProfileValid();
-  const editing = dom.localSignupForm.dataset.editing === "true";
-  dom.localSignupForm.dataset.registered = registered ? "true" : "false";
-  [dom.localUserRole, dom.localUserEmail, dom.localUserOrg].forEach((field) => {
-    if (field) field.disabled = registered && !editing;
-  });
-  if (dom.saveLocalSignup) dom.saveLocalSignup.hidden = registered && !editing;
-  if (dom.editLocalSignup) dom.editLocalSignup.hidden = !registered || editing;
-  if (dom.clearLocalSignup) dom.clearLocalSignup.hidden = !registered;
-  if (dom.copyLocalCommand) dom.copyLocalCommand.disabled = !registered;
-  if (dom.downloadRunScript) dom.downloadRunScript.disabled = !registered;
-
-  if (!dom.localSignupStatus) return;
-  if (!registered) {
-    setStatusText(dom.localSignupStatus, "Sign up once to unlock local run commands. No password is needed.", "");
-    return;
-  }
-  if (state.localRunnerSynced || state.localRunnerProfile?.syncedAt) {
-    setStatusText(dom.localSignupStatus, "Signup saved. Usage statistics were synced with the OpenQP API.", "ok");
-    return;
-  }
-  setStatusText(dom.localSignupStatus, "Signup saved in this browser. Central statistics will sync when the OpenQP API is available.", "ok");
-}
-
-async function handleLocalSignup(event) {
-  event.preventDefault();
-  const role = dom.localUserRole?.value || "";
-  const email = (dom.localUserEmail?.value || "").trim();
-  const organization = (dom.localUserOrg?.value || "").trim();
-  const existing = state.localRunnerProfile || {};
-  const profile = {
-    role,
-    email,
-    organization,
-    createdAt: existing.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  if (!localRunnerProfileValid(profile)) {
-    setStatusText(dom.localSignupStatus, "Enter role, university/institute, and a valid email.", "error");
-    return;
-  }
-
-  state.localRunnerProfile = profile;
-  state.localRunnerSynced = false;
-  localStorage.setItem(localRunnerStorageKey, JSON.stringify(profile));
-  dom.localSignupForm.dataset.editing = "false";
-  updateLocalSignupUi();
-  updateLocalRunPanel();
-  await syncLocalRunnerProfile({ silent: false });
-}
-
-function editLocalSignup() {
-  if (!dom.localSignupForm) return;
-  dom.localSignupForm.dataset.editing = "true";
-  if (dom.saveLocalSignup) dom.saveLocalSignup.hidden = false;
-  if (dom.editLocalSignup) dom.editLocalSignup.hidden = true;
-  [dom.localUserRole, dom.localUserEmail, dom.localUserOrg].forEach((field) => {
-    if (field) field.disabled = false;
-  });
-  dom.localUserRole?.focus();
-  setStatusText(dom.localSignupStatus, "Update the signup fields, then continue to local run.", "");
-}
-
-function clearLocalSignup() {
-  state.localRunnerProfile = null;
-  state.localRunnerSynced = false;
-  localStorage.removeItem(localRunnerStorageKey);
-  dom.localSignupForm.dataset.editing = "false";
-  [dom.localUserRole, dom.localUserEmail, dom.localUserOrg].forEach((field) => {
-    if (!field) return;
-    field.disabled = false;
-    field.value = "";
-  });
-  updateLocalSignupUi();
-  updateLocalRunPanel();
-}
-
-async function syncLocalRunnerProfile({ silent = true } = {}) {
-  if (!localRunnerProfileValid()) {
-    updateLocalSignupUi();
-    return false;
-  }
-  if (state.computeHealth !== "online") {
-    if (!silent) updateLocalSignupUi();
-    return false;
-  }
-  try {
-    const response = await computeRequest("/local-runners", {
-      method: "POST",
-      body: localRunnerPayload(),
-      auth: false
-    });
-    state.localRunnerSynced = true;
-    state.localRunnerProfile = {
-      ...state.localRunnerProfile,
-      syncedAt: response.synced_at || new Date().toISOString()
-    };
-    localStorage.setItem(localRunnerStorageKey, JSON.stringify(state.localRunnerProfile));
-    updateLocalSignupUi();
-    return true;
-  } catch (error) {
-    state.localRunnerSynced = false;
-    if (!silent) {
-      setStatusText(dom.localSignupStatus, "Signup saved locally. The central statistics endpoint is not available yet.", "ok");
-    } else {
-      updateLocalSignupUi();
-    }
-    return false;
-  }
-}
-
 function detectPreferredLocalRunOs() {
   if (!dom.localRunOs) return;
   const platform = [
@@ -2268,13 +2092,11 @@ function shellQuote(value) {
 function updateLocalRunPanel() {
   if (!dom.localRunCommand) return;
   dom.localRunCommand.textContent = localRunCommand();
-  updateLocalSignupUi();
   if (dom.localRunStatus) {
     const files = localRunFileNames();
     const script = localRunScriptName();
-    dom.localRunStatus.textContent = localRunnerProfileValid()
-      ? `Download ${files.input}, ${files.xyz}, and ${script}; keep them together before running.`
-      : "Complete local runner signup to unlock command copy and script download.";
+    dom.localRunStatus.textContent =
+      `Download ${files.input}, ${files.xyz}, and ${script}; keep them together before running.`;
   }
 }
 
@@ -2333,14 +2155,12 @@ function syncComputeUi() {
   const loggedIn = Boolean(state.computeToken);
   const workerOnline = state.computeHealth === "online";
   const authText = workerOnline
-    ? (loggedIn ? "Logged in for small online submissions." : "Login or sign up to submit a small online job.")
+    ? (loggedIn ? "Logged in for small online submissions." : "Login with a provisioned worker account to submit a small online job.")
     : (state.computeHealth === "offline" ? "Online worker is not available yet. Downloads still work." : "Checking online worker availability...");
   setStatusText(dom.computeAuthStatus, authText, workerOnline && loggedIn ? "ok" : "");
   if (dom.computeLogin) dom.computeLogin.hidden = loggedIn;
-  if (dom.computeSignup) dom.computeSignup.hidden = loggedIn;
   if (dom.computeLogout) dom.computeLogout.hidden = !loggedIn;
   if (dom.computeLogin) dom.computeLogin.disabled = !workerOnline;
-  if (dom.computeSignup) dom.computeSignup.disabled = !workerOnline;
   if (dom.computeEmail) dom.computeEmail.disabled = loggedIn || !workerOnline;
   if (dom.computePassword) dom.computePassword.disabled = loggedIn || !workerOnline;
   if (dom.computeStatus) dom.computeStatus.textContent = `Worker endpoint: ${computeApiBase}`;
@@ -2421,7 +2241,7 @@ function updateComputeChecks() {
   }
 }
 
-async function handleComputeAuth(mode) {
+async function handleComputeAuth() {
   if (state.computeHealth !== "online") {
     setStatusText(dom.computeAuthStatus, "Online worker is not available yet. Download files locally for now.", "error");
     return;
@@ -2434,8 +2254,8 @@ async function handleComputeAuth(mode) {
   }
 
   try {
-    setStatusText(dom.computeAuthStatus, mode === "signup" ? "Creating account..." : "Logging in...", "");
-    const response = await computeRequest(`/auth/${mode}`, {
+    setStatusText(dom.computeAuthStatus, "Logging in...", "");
+    const response = await computeRequest("/auth/login", {
       method: "POST",
       body: { email, password },
       auth: false
@@ -2454,7 +2274,6 @@ async function checkComputeHealth() {
     const response = await fetch(`${computeApiBase}/health`, { method: "GET" });
     if (!response.ok) throw new Error(`Worker health returned ${response.status}.`);
     state.computeHealth = "online";
-    await syncLocalRunnerProfile({ silent: true });
   } catch (error) {
     state.computeHealth = "offline";
   }

@@ -267,39 +267,6 @@
                 `openqp` command from your PATH and writes output into `openqp-results`.
               </p>
             </div>
-            <form class="local-signup" id="localSignupForm">
-              <div class="section-title small-title">
-                <p class="eyebrow">Local runner signup</p>
-                <h3>Tell us who is using OpenQP Web</h3>
-              </div>
-              <div class="two-col">
-                <label>
-                  Role
-                  <select id="localUserRole" required>
-                    <option value="">Choose role</option>
-                    <option value="student">Student</option>
-                    <option value="professor">Professor / PI</option>
-                    <option value="researcher">Postdoc / Researcher</option>
-                    <option value="industry">Industry</option>
-                    <option value="other">Other</option>
-                  </select>
-                </label>
-                <label>
-                  Email
-                  <input id="localUserEmail" type="email" autocomplete="email" required />
-                </label>
-              </div>
-              <label>
-                University / Institute
-                <input id="localUserOrg" autocomplete="organization" required />
-              </label>
-              <div class="download-row tight-row">
-                <button class="button compact" id="saveLocalSignup" type="submit">Continue to local run</button>
-                <button class="button secondary compact" id="editLocalSignup" type="button" hidden>Edit signup</button>
-                <button class="button secondary compact" id="clearLocalSignup" type="button" hidden>Clear signup</button>
-              </div>
-              <p class="microcopy" id="localSignupStatus">No password is needed for local runs.</p>
-            </form>
             <label>
               Operating system
               <select id="localRunOs">
@@ -332,7 +299,7 @@
             <h2>Cloud execution is limited</h2>
             <p>
               Local execution is the default. If an OpenQP worker is available later, online execution
-              will require an account, accept only small jobs, and run one job at a time.
+              will use pre-approved accounts, accept only small jobs, and run one job at a time.
             </p>
           </div>
 
@@ -347,7 +314,7 @@
             <form class="compute-auth" id="computeAuthForm">
               <div class="section-title small-title">
                 <p class="eyebrow">Account</p>
-                <h3>Login or sign up</h3>
+                <h3>Worker login</h3>
               </div>
               <label>
                 Email
@@ -359,10 +326,9 @@
               </label>
               <div class="download-row tight-row">
                 <button class="button compact" id="computeLogin" type="button">Login</button>
-                <button class="button secondary compact" id="computeSignup" type="button">Sign up</button>
                 <button class="button secondary compact" id="computeLogout" type="button" hidden>Logout</button>
               </div>
-              <p class="microcopy" id="computeAuthStatus">Compute access is separate from input download.</p>
+              <p class="microcopy" id="computeAuthStatus">Only provisioned worker accounts can submit online jobs.</p>
             </form>
 
             <div class="compute-submit">

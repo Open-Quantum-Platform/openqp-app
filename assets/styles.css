@@ -742,26 +742,12 @@ textarea {
   white-space: pre-wrap;
 }
 
-.local-signup {
-  padding: 14px;
-  background: white;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-
-.local-signup[data-registered="true"] {
-  border-color: #c8ded2;
-  background: #fbfdfb;
-}
-
 .microcopy[data-state="error"],
-#localSignupStatus[data-state="error"],
 #localRunStatus[data-state="error"] {
   color: #9f2f22;
 }
 
 .microcopy[data-state="ok"],
-#localSignupStatus[data-state="ok"],
 #localRunStatus[data-state="ok"] {
   color: #28524a;
 }

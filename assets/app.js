@@ -1900,7 +1900,7 @@ function renderInput() {
   ];
 
   if (functional) lines.push(`functional=${functional.toLowerCase()}`);
-  lines.push("d4=False", "", "[guess]", "type=huckel", `save_mol=${workflow.saveMol ? "True" : "False"}`, "", "[scf]", `type=${workflow.scfType || "rhf"}`, "maxit=100", `multiplicity=${dom.multiplicity.value}`, `conv=${dom.conv.value}`, "save_molden=True", ...scfExtras);
+  lines.push("d4=False", "", "[guess]", "type=huckel", `save_mol=${workflow.saveMol ? "True" : "False"}`, "", "[scf]", `type=${workflow.scfType || "rhf"}`, "maxit=100", `multiplicity=${dom.multiplicity.value}`, `conv=${dom.conv.value}`, "save_molden=False", ...scfExtras);
 
   const states = Number(dom.states.value || workflow.states || 0);
   if (states > 0 || inputMethod === "tdhf") {
@@ -1913,7 +1913,6 @@ function renderInput() {
   if (workflow.extraSections?.length) {
     lines.push("", ...workflow.extraSections.map(replaceTemplateTokens));
   }
-  lines.push("", "# Save the XYZ block below as a separate .xyz file, or use the download button.", "# --- XYZ preview ---", xyzBody());
   return `${lines.join("\n")}\n`;
 }
 

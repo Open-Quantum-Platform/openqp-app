@@ -641,6 +641,13 @@ textarea {
   font-size: 0.9rem;
 }
 
+.database-search span a {
+  color: var(--blue);
+  font-weight: 780;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .database-search span[data-state="error"] {
   color: #9f2f22;
 }

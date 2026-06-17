@@ -9,7 +9,7 @@
     />
     <title>OpenQP Workflow Builder</title>
     <link rel="icon" href="/assets/openqp-grid.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/assets/styles.css?v=20260618-run-readiness" />
+    <link rel="stylesheet" href="/assets/styles.css?v=20260618-pubchem-cid" />
   </head>
   <body data-page="workflow">
     <header class="app-header">
@@ -103,11 +103,14 @@
 
           <div class="database-search">
             <label>
-              Search PubChem
-              <input id="pubchemQuery" name="pubchemQuery" placeholder="benzene, caffeine, CID 2244" />
+              Search PubChem name or CID
+              <input id="pubchemQuery" name="pubchemQuery" placeholder="benzene, caffeine, or CID 2244" />
             </label>
             <button class="button secondary compact" id="pubchemSearch" type="button">Import</button>
-            <span id="pubchemStatus">Public lookup imports coordinates locally</span>
+            <span id="pubchemStatus">
+              Enter a compound name or PubChem CID to import geometry.
+              <a href="https://pubchem.ncbi.nlm.nih.gov/" target="_blank" rel="noreferrer">Search PubChem for the right molecule</a>.
+            </span>
           </div>
 
           <label>

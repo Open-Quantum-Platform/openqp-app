@@ -34,6 +34,38 @@ H   -1.232100   -0.928900    0.000000
 H    1.232100    0.928900    0.000000
 H    1.232100   -0.928900    0.000000`
   },
+  methyl: {
+    label: "Methyl radical",
+    xyz: `4
+methyl radical
+C    0.000000    0.000000    0.000000
+H    1.079000    0.000000    0.000000
+H   -0.539500    0.934500    0.000000
+H   -0.539500   -0.934500    0.000000`
+  },
+  butadiene: {
+    label: "1,3-Butadiene",
+    xyz: `10
+1,3-butadiene
+C   -1.901081    0.114577    0.000000
+C   -0.574901   -0.402238    0.000000
+C    0.574901    0.402238    0.000000
+C    1.901081   -0.114577    0.000000
+H   -2.755249   -0.545116    0.000000
+H   -2.071563    1.183087    0.000000
+H   -0.441349   -1.477941    0.000000
+H    0.441349    1.477941    0.000000
+H    2.071563   -1.183087    0.000000
+H    2.755249    0.545116    0.000000`
+  },
+  hcn: {
+    label: "Hydrogen cyanide",
+    xyz: `3
+hydrogen cyanide
+C    0.000000    0.000000    0.000000
+N    0.000000    0.000000    1.170000
+H   -1.100000    0.000000    0.000000`
+  },
   benzene: {
     label: "Benzene",
     xyz: `12
@@ -128,6 +160,111 @@ const workflows = [
     extraSections: ["[optimize]", "istate=0"]
   },
   {
+    id: "open-shell-uhf",
+    group: "Ground state",
+    title: "Open-shell UHF energy",
+    detail: "Doublet radical starter using the UHF reference path.",
+    jobName: "methyl_uhf_pbe0",
+    runtype: "energy",
+    method: "DFT",
+    functional: "PBE0",
+    basis: "6-31G(d)",
+    molecule: "methyl",
+    states: 0,
+    scfType: "uhf",
+    multiplicity: 2
+  },
+  {
+    id: "dft-d4",
+    group: "Ground state",
+    title: "DFT-D4 dispersion energy",
+    detail: "Single-point DFT template with the current [input] d4 switch enabled.",
+    jobName: "benzene_b3lyp_d4",
+    runtype: "energy",
+    method: "DFT",
+    functional: "B3LYP",
+    basis: "def2-SVP",
+    molecule: "benzene",
+    states: 0,
+    scfType: "rhf",
+    inputExtras: ["d4=True"]
+  },
+  {
+    id: "symmetry-labels",
+    group: "Ground state",
+    title: "Symmetry labels and reductions",
+    detail: "Energy run with point-group detection, MO labels, and response-state labels enabled.",
+    jobName: "ethylene_symmetry_labels",
+    runtype: "energy",
+    method: "DFT",
+    functional: "B3LYP",
+    basis: "6-31G(d)",
+    molecule: "ethylene",
+    states: 0,
+    scfType: "rhf",
+    extraSections: [
+      "[symmetry]",
+      "enabled=true",
+      "point_group=auto",
+      "subgroup=auto",
+      "label_mo=True",
+      "label_states=True",
+      "use_integral_symmetry=True",
+      "use_response_symmetry=True"
+    ]
+  },
+  {
+    id: "dft-grid-refined",
+    group: "Ground state",
+    title: "Refined DFT grid",
+    detail: "DFT starter with explicit radial and angular grid controls.",
+    jobName: "water_refined_grid",
+    runtype: "energy",
+    method: "DFT",
+    functional: "PBE0",
+    basis: "6-31G(d)",
+    molecule: "water",
+    states: 0,
+    scfType: "rhf",
+    extraSections: [
+      "[dftgrid]",
+      "rad_type=mhl",
+      "rad_npts=99",
+      "ang_npts=302",
+      "pruned="
+    ]
+  },
+  {
+    id: "scf-auto-trah",
+    group: "Ground state",
+    title: "Auto SCF with TRAH fallback",
+    detail: "SCF robustness template using the current auto selector and opt-in stability flag.",
+    jobName: "water_auto_scf_trah",
+    runtype: "energy",
+    method: "DFT",
+    functional: "PBE0",
+    basis: "6-31G(d)",
+    molecule: "water",
+    states: 0,
+    scfType: "rhf",
+    scfExtras: ["converger_type=auto", "alternative_scf=trah", "stability=False"]
+  },
+  {
+    id: "threaded-local",
+    group: "Ground state",
+    title: "Threaded local run",
+    detail: "Local-run starter that requests OpenMP threads through the input file.",
+    jobName: "benzene_threaded_dft",
+    runtype: "energy",
+    method: "DFT",
+    functional: "B3LYP",
+    basis: "6-31G(d)",
+    molecule: "benzene",
+    states: 0,
+    scfType: "rhf",
+    inputExtras: ["omp_threads=4"]
+  },
+  {
     id: "tddft",
     group: "Excited states",
     title: "TDHF/TDDFT energy",
@@ -141,6 +278,23 @@ const workflows = [
     states: 5,
     inputMethod: "tdhf",
     tdhfType: "rpa",
+    scfType: "rhf"
+  },
+  {
+    id: "tda",
+    group: "Excited states",
+    title: "TDA excited states",
+    detail: "Tamm-Dancoff TDDFT starter using the current tdhf.type=tda path.",
+    jobName: "water_tda_bhhlyp",
+    runtype: "energy",
+    method: "TDHF",
+    functional: "BHHLYP",
+    basis: "6-31G",
+    molecule: "water",
+    states: 10,
+    inputMethod: "tdhf",
+    tdhfType: "tda",
+    tdhfMultiplicity: 1,
     scfType: "rhf"
   },
   {
@@ -209,6 +363,24 @@ const workflows = [
     inputMethod: "tdhf",
     tdhfType: "mrsf",
     scfType: "rohf",
+    multiplicity: 3
+  },
+  {
+    id: "umrsf",
+    group: "MRSF",
+    title: "UMRSF-TDDFT energy",
+    detail: "Energy-only unrestricted MRSF starter from the current OpenQP examples.",
+    jobName: "butadiene_umrsf_energy",
+    runtype: "energy",
+    method: "UMRSF-TDDFT",
+    functional: "BHHLYP",
+    basis: "6-31G*",
+    molecule: "butadiene",
+    states: 10,
+    inputMethod: "tdhf",
+    tdhfType: "umrsf",
+    tdhfMultiplicity: 1,
+    scfType: "uhf",
     multiplicity: 3
   },
   {
@@ -309,6 +481,95 @@ const workflows = [
     ]
   },
   {
+    id: "mecp",
+    group: "Reaction paths",
+    title: "MECP optimization",
+    detail: "MRSF-TDDFT minimum-energy crossing point starter with multiplicity controls.",
+    jobName: "ethylene_mrsf_mecp",
+    runtype: "mecp",
+    method: "MRSF-TDDFT",
+    functional: "BHHLYP",
+    basis: "6-31G*",
+    molecule: "ethylene",
+    states: 5,
+    istate: 1,
+    jstate: 1,
+    inputMethod: "tdhf",
+    tdhfType: "mrsf",
+    scfType: "rohf",
+    multiplicity: 3,
+    extraSections: [
+      "[optimize]",
+      "lib=geometric",
+      "maxit=20",
+      "istate={istate}",
+      "jstate={jstate}",
+      "imult=1",
+      "jmult=3",
+      "energy_shift=1",
+      "energy_gap=1e-4",
+      "rmsd_grad=1e-3",
+      "max_grad=2e-3"
+    ]
+  },
+  {
+    id: "transition-state",
+    group: "Reaction paths",
+    title: "Transition-state search",
+    detail: "Ground-state geomeTRIC TS starter with HCN coordinates.",
+    jobName: "hcn_ts_search",
+    runtype: "ts",
+    method: "DFT",
+    functional: "BHHLYP",
+    basis: "3-21G",
+    molecule: "hcn",
+    states: 0,
+    scfType: "rhf",
+    extraSections: [
+      "[optimize]",
+      "lib=geometric",
+      "istate=0",
+      "maxit=20",
+      "energy_shift=1e-3",
+      "rmsd_grad=1e-3",
+      "max_grad=2e-3",
+      "",
+      "[geometric]",
+      "coordsys=dlc",
+      "trust=0.05",
+      "hessian=never",
+      "convergence_set=GAU"
+    ]
+  },
+  {
+    id: "irc",
+    group: "Reaction paths",
+    title: "IRC from a TS guess",
+    detail: "Intrinsic reaction coordinate starter using the native OQP optimizer path.",
+    jobName: "hcn_irc_forward",
+    runtype: "irc",
+    method: "DFT",
+    functional: "BHHLYP",
+    basis: "6-31G*",
+    molecule: "hcn",
+    states: 0,
+    scfType: "rhf",
+    extraSections: [
+      "[hess]",
+      "type=analytical",
+      "state=0",
+      "",
+      "[optimize]",
+      "lib=oqp",
+      "istate=0",
+      "maxit=10",
+      "",
+      "[oqp]",
+      "irc_step=0.15",
+      "irc_direction=forward"
+    ]
+  },
+  {
     id: "hessian",
     group: "Properties",
     title: "DFT Hessian and frequencies",
@@ -340,6 +601,57 @@ const workflows = [
     scfType: "rohf",
     multiplicity: 3,
     extraSections: ["[hess]", "state=1"]
+  },
+  {
+    id: "mrsf-soc",
+    group: "Couplings",
+    title: "MRSF spin-orbit coupling",
+    detail: "SOC starter with the required ROHF triplet MRSF reference.",
+    jobName: "water_mrsf_soc",
+    runtype: "soc",
+    method: "MRSF-TDDFT",
+    functional: "BHHLYP",
+    basis: "6-31G*",
+    molecule: "water",
+    states: 12,
+    inputMethod: "tdhf",
+    tdhfType: "mrsf",
+    tdhfMultiplicity: 3,
+    scfType: "rohf",
+    multiplicity: 3,
+    inputExtras: ["ispher=false", "soc_2e=1"],
+    extraSections: [
+      "[dftgrid]",
+      "rad_npts=90",
+      "ang_npts=302"
+    ]
+  },
+  {
+    id: "mrsf-nac",
+    group: "Couplings",
+    title: "MRSF nonadiabatic coupling",
+    detail: "Numerical NAC starter for a selected pair of MRSF states.",
+    jobName: "ethylene_mrsf_nac",
+    runtype: "nac",
+    method: "MRSF-TDDFT",
+    functional: "BHHLYP",
+    basis: "6-31G",
+    molecule: "ethylene",
+    states: 5,
+    istate: 1,
+    jstate: 2,
+    inputMethod: "tdhf",
+    tdhfType: "mrsf",
+    scfType: "rohf",
+    multiplicity: 3,
+    extraSections: [
+      "[nac]",
+      "type=numerical",
+      "states={istate} {jstate}",
+      "nproc=1",
+      "restart=False",
+      "clean=True"
+    ]
   },
   {
     id: "ir",
@@ -375,28 +687,31 @@ const workflows = [
     id: "nmr",
     group: "Properties",
     title: "NMR shielding",
-    detail: "Starter for NMR shielding workflows; review build-specific keywords.",
+    detail: "GIAO NMR shielding starter using the current properties.scf_prop=nmr path.",
     jobName: "water_nmr_shielding",
     runtype: "prop",
     method: "DFT",
-    functional: "B3LYP",
-    basis: "pcSseg-1",
+    functional: "PBE0",
+    basis: "STO-3G",
     molecule: "water",
     states: 0,
     scfType: "rhf",
     extraSections: [
+      "[dftgrid]",
+      "rad_type=mhl",
+      "rad_npts=99",
+      "ang_npts=302",
+      "",
       "[properties]",
-      "scf_prop=el_mom,mulliken",
-      "export=true",
-      "# nmr=shielding",
-      "# NMR shielding support is OpenQP-version dependent; replace with the exact keyword for your build."
+      "scf_prop=nmr",
+      "nmr_gauge=giao"
     ]
   },
   {
     id: "pcm",
     group: "Properties",
     title: "PCM solvent single point",
-    detail: "Solvent-effect starter with a reviewable PCM/ddPCM block.",
+    detail: "Solvent-effect starter with the current ddX/ddPCM reference-SCF block.",
     jobName: "water_pcm_sp",
     runtype: "energy",
     method: "DFT",
@@ -406,11 +721,13 @@ const workflows = [
     states: 0,
     scfType: "rhf",
     extraSections: [
-      "# PCM/ddPCM block: confirm exact solvent keywords for your OpenQP build.",
-      "# [pcm]",
-      "# model=ddpcm",
-      "# solvent=water",
-      "# dielectric=78.3553"
+      "[pcm]",
+      "enabled=true",
+      "backend=ddx",
+      "mode=reference_scf",
+      "model=ddpcm",
+      "solvent=water",
+      "epsilon=78.3553"
     ]
   },
   {
@@ -477,6 +794,52 @@ step    energy_hartree       max_gradient
   1     -114.22180432        2.1e-03
   5     -114.22911877        8.4e-06`
   },
+  "open-shell-uhf": {
+    title: "Open-shell SCF summary",
+    items: ["UHF energy and convergence history", "Spin-state diagnostics from the local log", "Molden orbitals when enabled"],
+    sample: `Open-shell preview
+reference: UHF
+multiplicity: 2
+converged: true`
+  },
+  "dft-d4": {
+    title: "DFT-D4 energy",
+    items: ["Final DFT energy", "D4 dispersion contribution when the local build supports D4", "Combined corrected energy in the log"],
+    sample: `DFT-D4 preview
+scf_energy_hartree: -232.11234567
+d4_correction_hartree: -0.01823456`
+  },
+  "symmetry-labels": {
+    title: "Symmetry-labeled output",
+    items: ["Detected point group", "MO symmetry labels", "State labels when response symmetry is used"],
+    sample: `Symmetry preview
+point_group: auto
+label_mo: true
+label_states: true`
+  },
+  "dft-grid-refined": {
+    title: "Refined-grid DFT output",
+    items: ["DFT energy with explicit grid controls", "Grid settings echoed in the input/log", "Useful baseline for grid sensitivity checks"],
+    sample: `DFT grid preview
+rad_type: mhl
+rad_npts: 99
+ang_npts: 302`
+  },
+  "scf-auto-trah": {
+    title: "SCF recovery diagnostics",
+    items: ["Auto-selected SCF path", "TRAH fallback status if DIIS/SOSCF needs help", "Stability remains opt-in unless enabled"],
+    sample: `SCF manager preview
+converger_type: auto
+alternative_scf: trah
+stability: false`
+  },
+  "threaded-local": {
+    title: "Threaded local run",
+    items: ["Requested OpenMP thread count", "SCF energy and timing from the local machine", "Warning in the log if the build lacks OpenMP"],
+    sample: `Threaded run preview
+omp_threads: 4
+backend: local OpenQP`
+  },
   tddft: {
     title: "Excited-state roots",
     items: ["Vertical excitation energies", "Oscillator strengths and response-vector data where enabled", "Molden orbitals for the reference state"],
@@ -484,6 +847,14 @@ step    energy_hartree       max_gradient
 state   energy_eV   oscillator_strength
   1       7.21            0.018
   2       8.44            0.116`
+  },
+  tda: {
+    title: "TDA excited-state roots",
+    items: ["TDA vertical excitation energies", "Response-state convergence history", "Oscillator strengths when emitted by the local build"],
+    sample: `TDA roots
+state   energy_eV
+  1       7.05
+  2       8.18`
   },
   "tdhf-gradient": {
     title: "Excited-state gradient",
@@ -516,6 +887,14 @@ state   relative_eV   dominant_character
   1        0.00        reference
   2        3.12        single excitation`
   },
+  umrsf: {
+    title: "UMRSF-TDDFT roots",
+    items: ["Energy-only UMRSF response roots", "UHF reference convergence details", "State list from the unrestricted MRSF path"],
+    sample: `UMRSF preview
+reference: UHF triplet
+tdhf.type: umrsf
+nstate: 10`
+  },
   "mrsf-gradient": {
     title: "MRSF gradient",
     items: ["Selected MRSF root gradient", "Response convergence history", "Geometry-ready local output"],
@@ -546,6 +925,29 @@ istate: 1
 jstate: 2
 energy_gap: 8.0e-05`
   },
+  mecp: {
+    title: "MECP optimization",
+    items: ["Crossing-point optimization progress", "Two multiplicity surfaces and final energy gap", "Final geometry for local validation"],
+    sample: `MECP preview
+istate/jstate: 1/1
+imult/jmult: 1/3
+energy_gap: 1.0e-04`
+  },
+  "transition-state": {
+    title: "Transition-state search",
+    items: ["TS optimization steps", "Gradient and step norms", "Final candidate geometry for frequency confirmation"],
+    sample: `TS preview
+optimizer: geomeTRIC
+coordsys: dlc
+target: first-order saddle point`
+  },
+  irc: {
+    title: "IRC path",
+    items: ["IRC branch points from the starting TS guess", "Energy profile along the path", "Forward or reverse branch direction"],
+    sample: `IRC preview
+irc_direction: forward
+irc_step: 0.15`
+  },
   hessian: {
     title: "Hessian and normal modes",
     items: ["Vibrational frequencies", "Normal-mode eigenvectors", "Frequency sidecar data for downstream plotting"],
@@ -560,6 +962,22 @@ mode   frequency_cm-1      IR_km_mol      Raman_activity
 state: 1
 nstate: 4
 artifact: ethylene_mrsf_hessian.hess.json`
+  },
+  "mrsf-soc": {
+    title: "Spin-orbit coupling output",
+    items: ["MRSF state energies for SOC analysis", "Spin-orbit coupling matrix elements", "SOC settings echoed from the local run"],
+    sample: `SOC preview
+tdhf.type: mrsf
+scf.multiplicity: 3
+soc_2e: 1`
+  },
+  "mrsf-nac": {
+    title: "Nonadiabatic coupling output",
+    items: ["Selected-state NAC vector", "Finite-difference worker settings", "State-pair metadata for downstream dynamics checks"],
+    sample: `NAC preview
+states: 1 2
+nproc: 1
+type: numerical`
   },
   ir: {
     title: "IR spectrum",
@@ -577,14 +995,14 @@ mode   frequency_cm-1      activity
   },
   nmr: {
     title: "NMR shielding output",
-    items: ["Shielding tensors and isotropic shielding when enabled by the OpenQP build", "Reference SCF properties included in the starter input", "Template keeps version-dependent NMR keywords as review comments"],
+    items: ["GIAO shielding tensors", "Isotropic shielding values", "Grid settings used for the DFT response"],
     sample: `NMR shielding preview
 atom   sigma_iso_ppm   anisotropy
  O       321.4           47.2`
   },
   pcm: {
     title: "Solvent-corrected energy",
-    items: ["Gas-phase and solvent-corrected energy terms", "Reaction-field contribution when PCM/ddPCM is enabled", "PCM block is commented until exact build keywords are confirmed"],
+    items: ["Reference-SCF ddPCM energy", "Reaction-field contribution", "Dielectric and backend settings echoed in the run"],
     sample: `PCM energy preview
 gas_phase_energy_hartree:      -76.41234567
 solvated_energy_hartree:       -76.42190231`
@@ -723,6 +1141,12 @@ const promptMoleculeAliases = {
   methanal: "formaldehyde",
   ethylene: "ethylene",
   ethene: "ethylene",
+  methyl: "methyl",
+  "methyl radical": "methyl",
+  butadiene: "butadiene",
+  "1,3-butadiene": "butadiene",
+  hcn: "hcn",
+  "hydrogen cyanide": "hcn",
   benzene: "benzene",
   caffeine: "caffeine"
 };
@@ -1089,12 +1513,19 @@ function parsePlainTextRequest(prompt) {
 
 function detectWorkflow(lower) {
   if (hasAny(lower, ["meci", "conical intersection"])) return workflowById("mrsf-meci");
+  if (hasAny(lower, ["mecp", "crossing point", "minimum energy crossing"])) return workflowById("mecp");
+  if (/\birc\b/.test(lower) || hasAny(lower, ["intrinsic reaction coordinate"])) return workflowById("irc");
+  if (hasAny(lower, ["transition state", "ts search", "saddle point"])) return workflowById("transition-state");
   if (hasAny(lower, ["mep", "minimum energy path"])) return workflowById("mrsf-mep");
+  if (/\bsoc\b/.test(lower) || hasAny(lower, ["spin orbit", "spin-orbit"])) return workflowById("mrsf-soc");
+  if (/\bnac\b/.test(lower) || hasAny(lower, ["nonadiabatic coupling", "non-adiabatic coupling"])) return workflowById("mrsf-nac");
   if (hasAny(lower, ["ekt", "ionization", "electron affinity", "ip/ea"])) return workflowById("ekt");
   if (hasAny(lower, ["nmr", "shielding"])) return workflowById("nmr");
   if (hasAny(lower, ["raman"])) return workflowById("raman");
   if (/\bir\b/.test(lower) || hasAny(lower, ["infrared"])) return workflowById("ir");
   if (hasAny(lower, ["pcm", "ddpcm", "solvent", "solvation"])) return workflowById("pcm");
+  if (hasAny(lower, ["umrsf", "unrestricted mrsf"])) return workflowById("umrsf");
+  if (/\btda\b/.test(lower) || hasAny(lower, ["tamm-dancoff", "tamm dancoff"])) return workflowById("tda");
   if (hasAny(lower, ["mrsf"]) && hasAny(lower, ["hessian", "frequency", "frequencies"])) return workflowById("mrsf-hessian");
   if (hasAny(lower, ["hessian", "frequency", "frequencies", "vibration", "vibrational"])) return workflowById("hessian");
   if (/\bmo\b/.test(lower) || hasAny(lower, ["orbital", "homo", "lumo", "electron density", "spin density", "esp", "electrostatic"])) return workflowById("orbitals-density");
@@ -1105,12 +1536,19 @@ function detectWorkflow(lower) {
   if (hasAny(lower, ["sf-tddft", "spin flip", "spin-flip"])) return workflowById("sf-tddft");
   if (hasAny(lower, ["tddft", "td-dft", "tdhf", "absorption", "excited state", "excited-state"]) && hasAny(lower, ["gradient", "grad"])) return workflowById("tdhf-gradient");
   if (hasAny(lower, ["tddft", "td-dft", "tdhf", "absorption", "excited state", "excited-state"])) return workflowById("tddft");
+  if (hasAny(lower, ["open shell", "open-shell", "radical", "uhf"])) return workflowById("open-shell-uhf");
+  if (/\bd4\b/.test(lower) || hasAny(lower, ["dispersion"])) return workflowById("dft-d4");
+  if (hasAny(lower, ["symmetry", "point group", "point-group", "labels"])) return workflowById("symmetry-labels");
+  if (hasAny(lower, ["grid", "dftgrid", "radial grid", "angular grid"])) return workflowById("dft-grid-refined");
+  if (/\btrah\b/.test(lower) || hasAny(lower, ["auto scf", "scf fallback", "scf recovery"])) return workflowById("scf-auto-trah");
+  if (hasAny(lower, ["openmp", "threads", "threaded"])) return workflowById("threaded-local");
   if (hasAny(lower, ["optimize", "optimization", "geometry opt", "relax"])) return workflowById("optimize");
   if (hasAny(lower, ["gradient", "grad"])) return workflowById("dft-gradient");
   return workflowById("single-point");
 }
 
 function detectMethod(lower) {
+  if (hasAny(lower, ["umrsf", "unrestricted mrsf"])) return "UMRSF-TDDFT";
   if (hasAny(lower, ["mrsf", "ekt"])) return "MRSF-TDDFT";
   if (hasAny(lower, ["sf-tddft", "spin flip", "spin-flip"])) return "SF-TDDFT";
   if (hasAny(lower, ["tdhf", "tddft", "td-dft"])) return "TDHF";
@@ -1878,7 +2316,7 @@ function updateViewerDebugStats() {
 
 function inputMethodForWorkflow(workflow) {
   if (workflow.inputMethod) return workflow.inputMethod;
-  if (dom.method?.value === "TDHF" || dom.method?.value === "SF-TDDFT" || dom.method?.value === "MRSF-TDDFT") return "tdhf";
+  if (["TDHF", "SF-TDDFT", "MRSF-TDDFT", "UMRSF-TDDFT"].includes(dom.method?.value)) return "tdhf";
   return "hf";
 }
 
@@ -1905,6 +2343,8 @@ function renderInput() {
   const inputMethod = inputMethodForWorkflow(workflow);
   const functional = activeFunctional();
   const scfExtras = (workflow.scfExtras || []).filter((line) => line !== "save_molden=True");
+  const inputExtras = (workflow.inputExtras || []).map(replaceTemplateTokens);
+  const hasD4Setting = inputExtras.some((line) => /^\s*d4\s*=/i.test(line));
   const lines = [
     "# OpenQP input generated by OpenQP Web",
     "# Default execution path: download this input and run OpenQP locally.",
@@ -1919,14 +2359,17 @@ function renderInput() {
   ];
 
   if (functional) lines.push(`functional=${functional.toLowerCase()}`);
-  lines.push("d4=False", "", "[guess]", "type=huckel", `save_mol=${workflow.saveMol ? "True" : "False"}`, "", "[scf]", `type=${workflow.scfType || "rhf"}`, "maxit=100", `multiplicity=${dom.multiplicity.value}`, `conv=${dom.conv.value}`, "save_molden=False", ...scfExtras);
+  lines.push(...inputExtras);
+  if (!hasD4Setting) lines.push("d4=False");
+  lines.push("", "[guess]", "type=huckel", `save_mol=${workflow.saveMol ? "True" : "False"}`, "", "[scf]", `type=${workflow.scfType || "rhf"}`, `maxit=${workflow.scfMaxit || 100}`, `multiplicity=${dom.multiplicity.value}`, `conv=${dom.conv.value}`, "save_molden=False", ...scfExtras);
 
   const states = Number(dom.states.value || workflow.states || 0);
   if (states > 0 || inputMethod === "tdhf") {
-    lines.push("", "[tdhf]", `type=${workflow.tdhfType || (dom.method.value === "SF-TDDFT" ? "sf" : dom.method.value === "MRSF-TDDFT" ? "mrsf" : "rpa")}`, "maxit=30", "multiplicity=1", `nstate=${Math.max(states, 1)}`, `conv=${dom.conv.value}`, `zvconv=${dom.conv.value}`);
+    const tdhfType = workflow.tdhfType || (dom.method.value === "SF-TDDFT" ? "sf" : dom.method.value === "MRSF-TDDFT" ? "mrsf" : dom.method.value === "UMRSF-TDDFT" ? "umrsf" : "rpa");
+    lines.push("", "[tdhf]", `type=${tdhfType}`, `maxit=${workflow.tdhfMaxit || 30}`, `multiplicity=${workflow.tdhfMultiplicity || 1}`, `nstate=${Math.max(states, 1)}`, `conv=${dom.conv.value}`, `zvconv=${dom.conv.value}`);
   }
 
-  if (["mrsf", "mrsf-gradient", "mrsf-optimize", "mrsf-mep", "mrsf-meci", "mrsf-hessian", "ekt"].includes(workflow.id)) {
+  if (["mrsf", "umrsf"].includes(workflow.tdhfType) || ["ekt", "mrsf-soc", "mrsf-nac"].includes(workflow.id)) {
     lines.push("", "# Review active-space and reference settings before production MRSF runs.");
   }
   if (workflow.extraSections?.length) {
@@ -1939,7 +2382,8 @@ function replaceTemplateTokens(line) {
   return line
     .replaceAll("{istate}", String(dom.istate?.value || 0))
     .replaceAll("{jstate}", String(dom.jstate?.value || 1))
-    .replaceAll("{nstate}", String(dom.states?.value || 0));
+    .replaceAll("{nstate}", String(dom.states?.value || 0))
+    .replaceAll("{multiplicity}", String(dom.multiplicity?.value || 1));
 }
 
 function renderPreview() {

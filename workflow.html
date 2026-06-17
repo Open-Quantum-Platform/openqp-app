@@ -9,7 +9,7 @@
     />
     <title>OpenQP Workflow Builder</title>
     <link rel="icon" href="/assets/openqp-grid.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/styles.css?v=20260618-local-setup" />
   </head>
   <body data-page="workflow">
     <header class="app-header">
@@ -262,12 +262,20 @@
               </p>
             </div>
             <div class="local-runner-panel">
+              <div class="setup-strip">
+                <div>
+                  <strong>Direct local run setup</strong>
+                  <span>Guided setup for installing OpenQP, starting the runner, pairing this page, and running the job.</span>
+                </div>
+                <button class="button compact" id="openLocalSetup" type="button">Set up direct run</button>
+              </div>
               <label>
                 Pairing code
                 <input id="localRunnerToken" type="password" autocomplete="off" placeholder="Code from local runner" />
               </label>
               <div class="download-row tight-row">
                 <a class="button secondary compact" href="/tools/openqp-local-runner.py" download>Download local runner</a>
+                <a class="button secondary compact" href="/tools/install-openqp-local.py" download>Download OpenQP installer</a>
                 <a class="button secondary compact" href="http://127.0.0.1:17651/workflow.html">Open local mode</a>
                 <button class="button secondary compact" id="checkLocalRunner" type="button">Check local runner</button>
                 <button class="button compact" id="runLocalOpenQp" type="button">Run with local OpenQP</button>
@@ -315,12 +323,63 @@
       </section>
     </main>
 
+    <dialog class="setup-dialog" id="localSetupDialog" aria-labelledby="localSetupTitle">
+      <div class="setup-dialog-inner">
+        <div class="setup-dialog-head">
+          <div>
+            <p class="eyebrow">Direct local run</p>
+            <h2 id="localSetupTitle">Set up OpenQP on this computer</h2>
+          </div>
+          <button class="icon-button" id="closeLocalSetup" type="button" aria-label="Close setup guide">Close</button>
+        </div>
+        <p class="setup-intro" id="localSetupSummary">
+          The local runner is a small program on this computer. Its pairing code lets this page send the prepared input to that runner without uploading the job.
+        </p>
+        <div class="setup-status" id="localSetupDetected">
+          Start the local runner, then check it from this page.
+        </div>
+        <ol class="setup-steps">
+          <li>
+            <strong>Install OpenQP if the command is missing.</strong>
+            <p>Download the installer, then run it once from Terminal. It installs OpenQP from the official source repository into a local Python environment.</p>
+            <div class="download-row tight-row">
+              <a class="button compact" href="/tools/install-openqp-local.py" download>Download OpenQP installer</a>
+              <button class="button secondary compact" id="copyOpenQpInstall" type="button">Copy install command</button>
+            </div>
+            <pre>python3 ~/Downloads/install-openqp-local.py</pre>
+          </li>
+          <li>
+            <strong>Start the local runner.</strong>
+            <p>Download the runner and launch it from Terminal. Keep that Terminal window open while jobs are running.</p>
+            <div class="download-row tight-row">
+              <a class="button compact" href="/tools/openqp-local-runner.py" download>Download local runner</a>
+              <button class="button secondary compact" id="copyRunnerStart" type="button">Copy runner command</button>
+            </div>
+            <pre>python3 ~/Downloads/openqp-local-runner.py</pre>
+          </li>
+          <li>
+            <strong>Copy the pairing code.</strong>
+            <p>The runner prints a line like <code>Pairing code: ...</code>. Paste that code into the Pairing code field on this page.</p>
+          </li>
+          <li>
+            <strong>Open local mode.</strong>
+            <p>Use local mode when the secure web page cannot reach your local runner directly.</p>
+            <a class="button secondary compact" href="http://127.0.0.1:17651/workflow.html">Open local mode</a>
+          </li>
+          <li>
+            <strong>Check, then run.</strong>
+            <p>Click Check local runner. If it finds OpenQP, click Run with local OpenQP. Results are written under your OpenQP Local Runs folder.</p>
+          </li>
+        </ol>
+      </div>
+    </dialog>
+
     <footer>
       <span>Open Quantum Platform</span>
       <a href="/">All workflows</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
     </footer>
-    <script type="module" src="/assets/app.js?v=20260618-clean-input"></script>
+    <script type="module" src="/assets/app.js?v=20260618-local-setup"></script>
   </body>
 </html>

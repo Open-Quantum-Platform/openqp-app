@@ -27,7 +27,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 DEFAULT_PORT = 17651
 DEFAULT_ORIGINS = (
     "https://app.openqp.org",
@@ -37,6 +37,16 @@ DEFAULT_ORIGINS = (
     "http://localhost:4174",
 )
 REMOTE_APP_ORIGIN = "https://app.openqp.org"
+
+
+def default_openqp_candidates() -> tuple[Path, ...]:
+    home = Path.home()
+    if os.name == "nt":
+        return ()
+    return (
+        home / ".openqp-local" / "venv" / "bin" / "openqp",
+        home / ".local" / "bin" / "openqp",
+    )
 
 
 def safe_job_name(value: str) -> str:
@@ -90,7 +100,14 @@ class RunnerState:
         configured = Path(self.openqp_bin).expanduser()
         if configured.is_absolute() or os.sep in self.openqp_bin:
             return str(configured) if configured.exists() else None
-        return shutil.which(self.openqp_bin)
+        found = shutil.which(self.openqp_bin)
+        if found:
+            return found
+        if self.openqp_bin == "openqp":
+            for candidate in default_openqp_candidates():
+                if candidate.exists():
+                    return str(candidate)
+        return None
 
     def active_job_id(self) -> str | None:
         with self.lock:
@@ -171,13 +188,14 @@ class RunnerState:
         env.setdefault("MKL_NUM_THREADS", "1")
 
         try:
+            openqp_command = self.openqp_path() or self.openqp_bin
             with output_path.open("w", encoding="utf-8", errors="replace") as output:
                 output.write(f"OpenQP Local Runner {VERSION}\n")
                 output.write(f"Working directory: {job_dir}\n")
-                output.write(f"Command: {self.openqp_bin} {input_name}\n\n")
+                output.write(f"Command: {openqp_command} {input_name}\n\n")
                 output.flush()
                 process = subprocess.Popen(
-                    [self.openqp_bin, input_name],
+                    [openqp_command, input_name],
                     cwd=str(job_dir),
                     stdout=output,
                     stderr=subprocess.STDOUT,
@@ -435,7 +453,11 @@ def main() -> int:
     print("OpenQP Local Runner")
     print(f"Listening: http://{args.host}:{args.port}")
     print(f"Pairing code: {token}")
-    print(f"OpenQP command: {args.openqp}")
+    print("Paste this pairing code into the workflow page.")
+    openqp_path = state.openqp_path()
+    print(f"OpenQP command: {openqp_path or args.openqp}")
+    if not openqp_path:
+        print("OpenQP was not found. In the setup guide, download and run the OpenQP installer, then restart this runner.")
     print(f"Work folder: {state.work_dir}")
     print(f"Local mode: http://{args.host}:{args.port}/workflow.html")
     print("Keep this window open while running jobs from app.openqp.org.")

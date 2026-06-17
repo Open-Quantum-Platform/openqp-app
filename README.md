@@ -7,6 +7,7 @@ Baseline behavior:
 - browser-only OpenQP input and XYZ file generation
 - downloadable `.inp` and `.xyz` files without login
 - optional localhost runner for direct use of the user's installed `openqp`
+- guided direct-run setup with a downloadable OpenQP installer helper
 - local run commands and OS-specific run scripts without registration
 - local run scripts for macOS/Linux shell, Windows PowerShell, and Windows
   Command Prompt
@@ -28,14 +29,17 @@ Pages:
 
 Local runner:
 
-- Download `/tools/openqp-local-runner.py`.
-- Start it with `python3 openqp-local-runner.py`.
+- Open the setup guide from `/workflow.html`, or download
+  `/tools/install-openqp-local.py` first if the `openqp` command is missing.
+- Start the runner with `python3 openqp-local-runner.py`.
 - Open `http://127.0.0.1:17651/workflow.html`, or use the hosted workflow page
   if the browser allows HTTPS-to-localhost access.
 - Enter the printed pairing code in the workflow page and use
   `Run with local OpenQP`.
 - The runner listens on `127.0.0.1:17651`, accepts only allowed browser origins,
   requires the pairing code, and runs `openqp input.inp` without shell strings.
+  It also detects the installer helper's default `~/.openqp-local/venv/bin/openqp`
+  path so users do not need to edit PATH.
 
 The only external tool fallback kept in the UI is OpenqpView for true
 cube/Molden isosurface rendering.

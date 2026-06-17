@@ -870,6 +870,12 @@ function captureWorkflowDom() {
     downloadRunScript: document.querySelector("#downloadRunScript"),
     localRunStatus: document.querySelector("#localRunStatus"),
     localRunnerToken: document.querySelector("#localRunnerToken"),
+    localSetupDialog: document.querySelector("#localSetupDialog"),
+    localSetupDetected: document.querySelector("#localSetupDetected"),
+    openLocalSetup: document.querySelector("#openLocalSetup"),
+    closeLocalSetup: document.querySelector("#closeLocalSetup"),
+    copyOpenQpInstall: document.querySelector("#copyOpenQpInstall"),
+    copyRunnerStart: document.querySelector("#copyRunnerStart"),
     checkLocalRunner: document.querySelector("#checkLocalRunner"),
     runLocalOpenQp: document.querySelector("#runLocalOpenQp"),
     cancelLocalOpenQp: document.querySelector("#cancelLocalOpenQp"),
@@ -964,6 +970,13 @@ function setupBuilderEvents() {
   dom.downloadRunPackage?.addEventListener("click", downloadRunPackage);
   dom.copyLocalCommand?.addEventListener("click", copyLocalCommand);
   dom.downloadRunScript?.addEventListener("click", downloadRunScript);
+  dom.openLocalSetup?.addEventListener("click", () => openLocalSetupDialog());
+  dom.closeLocalSetup?.addEventListener("click", closeLocalSetupDialog);
+  dom.localSetupDialog?.addEventListener("click", (event) => {
+    if (event.target === dom.localSetupDialog) closeLocalSetupDialog();
+  });
+  dom.copyOpenQpInstall?.addEventListener("click", () => copySetupCommand(dom.copyOpenQpInstall, "python3 ~/Downloads/install-openqp-local.py"));
+  dom.copyRunnerStart?.addEventListener("click", () => copySetupCommand(dom.copyRunnerStart, "python3 ~/Downloads/openqp-local-runner.py"));
   restoreLocalRunnerToken();
   dom.localRunnerToken?.addEventListener("input", storeLocalRunnerToken);
   dom.checkLocalRunner?.addEventListener("click", () => checkLocalRunner());
@@ -2339,6 +2352,45 @@ function setLocalRunnerBusy(isBusy) {
   if (dom.cancelLocalOpenQp) dom.cancelLocalOpenQp.disabled = !isBusy;
 }
 
+function setLocalSetupDetected(text, stateName = "") {
+  setStatusText(dom.localSetupDetected, text, stateName);
+}
+
+function openLocalSetupDialog(message = "", stateName = "running") {
+  if (message) setLocalSetupDetected(message, stateName);
+  if (!dom.localSetupDialog) return;
+  if (typeof dom.localSetupDialog.showModal === "function" && !dom.localSetupDialog.open) {
+    dom.localSetupDialog.showModal();
+  } else {
+    dom.localSetupDialog.setAttribute("open", "");
+  }
+}
+
+function closeLocalSetupDialog() {
+  if (!dom.localSetupDialog) return;
+  if (typeof dom.localSetupDialog.close === "function") {
+    dom.localSetupDialog.close();
+  } else {
+    dom.localSetupDialog.removeAttribute("open");
+  }
+}
+
+async function copySetupCommand(button, command) {
+  if (!button) return;
+  const original = button.textContent;
+  let copied = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(command);
+      copied = true;
+    }
+  } catch (error) {
+    copied = false;
+  }
+  button.textContent = copied ? "Copied" : "Select command";
+  setTimeout(() => { button.textContent = original; }, 1200);
+}
+
 function localRunnerConnectionMessage(error) {
   const message = error?.message || "";
   if (window.location.protocol === "https:" && /Failed to fetch|Load failed|NetworkError/i.test(message)) {
@@ -2350,20 +2402,38 @@ function localRunnerConnectionMessage(error) {
 async function checkLocalRunner({ quiet = false } = {}) {
   try {
     const health = await localRunnerRequest("/health");
-    const openqpText = health.openqp?.available ? `OpenQP: ${health.openqp.path || health.openqp.configured}` : "OpenQP command not found";
-    setLocalRunnerStatus(`Local runner connected. ${openqpText}.`, health.openqp?.available ? "ok" : "error");
+    const hasOpenQp = Boolean(health.openqp?.available);
+    const openqpText = hasOpenQp ? `OpenQP: ${health.openqp.path || health.openqp.configured}` : "OpenQP command not found";
+    setLocalRunnerStatus(
+      hasOpenQp
+        ? `Local runner connected. ${openqpText}.`
+        : "Local runner connected, but OpenQP is not installed yet. Open setup and run the installer.",
+      hasOpenQp ? "ok" : "error"
+    );
+    setLocalSetupDetected(
+      hasOpenQp
+        ? `OpenQP was found at ${health.openqp?.path || health.openqp?.configured}. Paste the pairing code, then run the job.`
+        : "OpenQP was not found. Download and run the OpenQP installer, then restart the local runner.",
+      hasOpenQp ? "ok" : "error"
+    );
     if (!quiet) {
-      setLocalRunnerLog([
+      const lines = [
         `${health.runner || "OpenQP Local Runner"} ${health.version || ""}`.trim(),
         `Work folder: ${health.workDir || ""}`,
-        `Limit: ${health.maxAtoms || "?"} atoms, ${health.timeoutSeconds || "?"} s`
-      ].join("\n"));
+        `Limit: ${health.maxAtoms || "?"} atoms, ${health.timeoutSeconds || "?"} s`,
+        openqpText
+      ];
+      if (!hasOpenQp) {
+        lines.push("", "Install command:", "python3 ~/Downloads/install-openqp-local.py", "", "Then restart the local runner.");
+      }
+      setLocalRunnerLog(lines.join("\n"));
     }
     return health;
   } catch (error) {
     if (!quiet) {
       setLocalRunnerStatus(localRunnerConnectionMessage(error), "error");
       setLocalRunnerLog(localRunnerConnectionMessage(error));
+      setLocalSetupDetected("The local runner is not connected. Download it, start it in Terminal, then copy its pairing code.", "error");
     }
     throw error;
   }
@@ -2371,7 +2441,9 @@ async function checkLocalRunner({ quiet = false } = {}) {
 
 async function startLocalRunnerJob() {
   if (!localRunnerToken()) {
-    setLocalRunnerStatus("Enter the pairing code printed by the local runner.", "error");
+    const message = "Paste the pairing code printed by the local runner before starting the job.";
+    setLocalRunnerStatus(message, "error");
+    openLocalSetupDialog(message, "error");
     dom.localRunnerToken?.focus();
     return;
   }
@@ -2382,7 +2454,14 @@ async function startLocalRunnerJob() {
   setLocalRunnerLog("");
 
   try {
-    await checkLocalRunner({ quiet: true });
+    const health = await checkLocalRunner({ quiet: true });
+    if (!health.openqp?.available) {
+      const message = "OpenQP is not installed yet. Run the OpenQP installer, restart the local runner, then try again.";
+      setLocalRunnerBusy(false);
+      setLocalRunnerStatus(message, "error");
+      openLocalSetupDialog(message, "error");
+      return;
+    }
     const job = await localRunnerRequest("/jobs", {
       method: "POST",
       body: JSON.stringify({
@@ -2397,8 +2476,10 @@ async function startLocalRunnerJob() {
     updateLocalRunnerJob(job);
     startLocalRunnerPolling();
   } catch (error) {
+    const message = localRunnerConnectionMessage(error);
     setLocalRunnerBusy(false);
-    setLocalRunnerStatus(localRunnerConnectionMessage(error), "error");
+    setLocalRunnerStatus(message, "error");
+    openLocalSetupDialog(message, "error");
   }
 }
 

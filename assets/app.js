@@ -655,7 +655,11 @@ let lastPointer = { x: 0, y: 0 };
 let viewerDebugFrame = 0;
 const localRunnerState = {
   jobId: "",
-  pollTimer: 0
+  pollTimer: 0,
+  tokenCheckTimer: 0,
+  ready: false,
+  busy: false,
+  analysisOpenedFor: ""
 };
 const viewerDebugStats = {
   width: 0,
@@ -978,10 +982,12 @@ function setupBuilderEvents() {
   dom.copyOpenQpInstall?.addEventListener("click", () => copySetupCommand(dom.copyOpenQpInstall, "python3 ~/Downloads/install-openqp-local.py"));
   dom.copyRunnerStart?.addEventListener("click", () => copySetupCommand(dom.copyRunnerStart, "python3 ~/Downloads/openqp-local-runner.py"));
   restoreLocalRunnerToken();
-  dom.localRunnerToken?.addEventListener("input", storeLocalRunnerToken);
+  dom.localRunnerToken?.addEventListener("input", handleLocalRunnerTokenInput);
   dom.checkLocalRunner?.addEventListener("click", () => checkLocalRunner());
   dom.runLocalOpenQp?.addEventListener("click", () => startLocalRunnerJob());
   dom.cancelLocalOpenQp?.addEventListener("click", () => cancelLocalRunnerJob());
+  setLocalRunnerReady(false);
+  if (localRunnerToken()) scheduleLocalRunnerAutoCheck();
   detectPreferredLocalRunOs();
 }
 
@@ -2301,8 +2307,34 @@ function storeLocalRunnerToken() {
   }
 }
 
+function rememberedLocalRunnerToken() {
+  try {
+    return sessionStorage.getItem(LOCAL_RUNNER_TOKEN_KEY) || "";
+  } catch (error) {
+    return "";
+  }
+}
+
 function localRunnerToken() {
-  return dom.localRunnerToken?.value.trim() || "";
+  return dom.localRunnerToken?.value.trim() || rememberedLocalRunnerToken();
+}
+
+function handleLocalRunnerTokenInput() {
+  storeLocalRunnerToken();
+  setLocalRunnerReady(false);
+  if (localRunnerToken()) {
+    scheduleLocalRunnerAutoCheck();
+  } else {
+    setLocalRunnerStatus("Paste the pairing code from the local runner to enable direct run.", "running");
+  }
+}
+
+function scheduleLocalRunnerAutoCheck() {
+  if (localRunnerState.tokenCheckTimer) window.clearTimeout(localRunnerState.tokenCheckTimer);
+  localRunnerState.tokenCheckTimer = window.setTimeout(() => {
+    localRunnerState.tokenCheckTimer = 0;
+    checkLocalRunner({ quiet: true }).catch(() => {});
+  }, 650);
 }
 
 function localRunnerHeaders(hasBody = false) {
@@ -2347,9 +2379,19 @@ function setLocalRunnerLog(text) {
 }
 
 function setLocalRunnerBusy(isBusy) {
-  if (dom.runLocalOpenQp) dom.runLocalOpenQp.disabled = isBusy;
-  if (dom.checkLocalRunner) dom.checkLocalRunner.disabled = isBusy;
-  if (dom.cancelLocalOpenQp) dom.cancelLocalOpenQp.disabled = !isBusy;
+  localRunnerState.busy = Boolean(isBusy);
+  updateLocalRunnerControls();
+}
+
+function setLocalRunnerReady(isReady) {
+  localRunnerState.ready = Boolean(isReady);
+  updateLocalRunnerControls();
+}
+
+function updateLocalRunnerControls() {
+  if (dom.runLocalOpenQp) dom.runLocalOpenQp.disabled = localRunnerState.busy || !localRunnerState.ready;
+  if (dom.checkLocalRunner) dom.checkLocalRunner.disabled = localRunnerState.busy;
+  if (dom.cancelLocalOpenQp) dom.cancelLocalOpenQp.disabled = !localRunnerState.busy;
 }
 
 function setLocalSetupDetected(text, stateName = "") {
@@ -2403,19 +2445,42 @@ async function checkLocalRunner({ quiet = false } = {}) {
   try {
     const health = await localRunnerRequest("/health");
     const hasOpenQp = Boolean(health.openqp?.available);
+    let paired = false;
+    let pairMessage = "";
+    if (hasOpenQp && localRunnerToken()) {
+      try {
+        await localRunnerRequest("/pair");
+        paired = true;
+      } catch (error) {
+        if (/not found/i.test(error?.message || "")) {
+          paired = true;
+          pairMessage = "Runner connected. Download the updated runner from setup when convenient.";
+        } else {
+          pairMessage = "The pairing code was not accepted. Check the code printed by the runner.";
+        }
+      }
+    }
     const openqpText = hasOpenQp ? `OpenQP: ${health.openqp.path || health.openqp.configured}` : "OpenQP command not found";
+    const statusText = !hasOpenQp
+      ? "Local runner connected, but OpenQP is not installed yet. Open setup and run the installer."
+      : paired
+        ? `Ready for direct run. ${openqpText}.`
+        : localRunnerToken()
+          ? pairMessage
+          : `Local runner connected. ${openqpText}. Paste the pairing code to enable direct run.`;
     setLocalRunnerStatus(
-      hasOpenQp
-        ? `Local runner connected. ${openqpText}.`
-        : "Local runner connected, but OpenQP is not installed yet. Open setup and run the installer.",
-      hasOpenQp ? "ok" : "error"
+      statusText,
+      paired ? "ok" : hasOpenQp && !localRunnerToken() ? "running" : "error"
     );
     setLocalSetupDetected(
-      hasOpenQp
-        ? `OpenQP was found at ${health.openqp?.path || health.openqp?.configured}. Paste the pairing code, then run the job.`
+      paired
+        ? "Direct run is ready. Close this guide and run the job."
+        : hasOpenQp
+          ? `OpenQP was found at ${health.openqp?.path || health.openqp?.configured}. Paste the pairing code, then run the job.`
         : "OpenQP was not found. Download and run the OpenQP installer, then restart the local runner.",
-      hasOpenQp ? "ok" : "error"
+      paired ? "ok" : hasOpenQp ? "running" : "error"
     );
+    setLocalRunnerReady(paired);
     if (!quiet) {
       const lines = [
         `${health.runner || "OpenQP Local Runner"} ${health.version || ""}`.trim(),
@@ -2423,6 +2488,13 @@ async function checkLocalRunner({ quiet = false } = {}) {
         `Limit: ${health.maxAtoms || "?"} atoms, ${health.timeoutSeconds || "?"} s`,
         openqpText
       ];
+      if (hasOpenQp && paired) {
+        lines.push(pairMessage || "Pairing code accepted.", "Run with local OpenQP is enabled.");
+      } else if (hasOpenQp && localRunnerToken()) {
+        lines.push(pairMessage);
+      } else if (hasOpenQp) {
+        lines.push("Paste the pairing code printed by the runner.");
+      }
       if (!hasOpenQp) {
         lines.push("", "Install command:", "python3 ~/Downloads/install-openqp-local.py", "", "Then restart the local runner.");
       }
@@ -2430,6 +2502,7 @@ async function checkLocalRunner({ quiet = false } = {}) {
     }
     return health;
   } catch (error) {
+    setLocalRunnerReady(false);
     if (!quiet) {
       setLocalRunnerStatus(localRunnerConnectionMessage(error), "error");
       setLocalRunnerLog(localRunnerConnectionMessage(error));
@@ -2457,6 +2530,13 @@ async function startLocalRunnerJob() {
     const health = await checkLocalRunner({ quiet: true });
     if (!health.openqp?.available) {
       const message = "OpenQP is not installed yet. Run the OpenQP installer, restart the local runner, then try again.";
+      setLocalRunnerBusy(false);
+      setLocalRunnerStatus(message, "error");
+      openLocalSetupDialog(message, "error");
+      return;
+    }
+    if (!localRunnerState.ready) {
+      const message = "Direct run is not ready yet. Check the runner and pairing code in setup.";
       setLocalRunnerBusy(false);
       setLocalRunnerStatus(message, "error");
       openLocalSetupDialog(message, "error");
@@ -2523,9 +2603,22 @@ function updateLocalRunnerJob(job) {
   if (terminal) {
     stopLocalRunnerPolling();
     setLocalRunnerBusy(false);
+    if (status === "complete") openCompletedLocalRunAnalysis(job);
   } else {
     setLocalRunnerBusy(true);
   }
+}
+
+function openCompletedLocalRunAnalysis(job) {
+  if (!job?.id || localRunnerState.analysisOpenedFor === job.id) return;
+  localRunnerState.analysisOpenedFor = job.id;
+  const url = new URL("/analysis.html", LOCAL_RUNNER_URL);
+  url.searchParams.set("job", job.id);
+  const token = localRunnerToken();
+  if (token) url.hash = `token=${encodeURIComponent(token)}`;
+  window.setTimeout(() => {
+    window.location.href = url.toString();
+  }, 700);
 }
 
 async function cancelLocalRunnerJob() {
@@ -2832,6 +2925,8 @@ function initAnalysisPage() {
   setupViewerImport();
   document.querySelector("#downloadXyz")?.addEventListener("click", () => downloadFile("openqp_loaded_structure.xyz", `${xyzBody()}\n`, "chemical/x-xyz"));
   updateMoleculeViewer();
+  hydrateLocalRunnerTokenFromHash();
+  loadLocalRunnerJobFromUrl();
 }
 
 function updateAnalysisSummary(parsed) {
@@ -2846,6 +2941,65 @@ function updateAnalysisSummary(parsed) {
     return li;
   }));
   sample.textContent = parsed.sample || parsed.status;
+}
+
+function hydrateLocalRunnerTokenFromHash() {
+  const hash = window.location.hash.replace(/^#/, "");
+  if (!hash) return;
+  const params = new URLSearchParams(hash);
+  const token = params.get("token");
+  if (!token) return;
+  try {
+    sessionStorage.setItem(LOCAL_RUNNER_TOKEN_KEY, token);
+  } catch (error) {
+    // The analysis page can still try the request if storage is unavailable.
+  }
+  window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}`);
+}
+
+async function loadLocalRunnerJobFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const jobId = params.get("job");
+  if (!jobId) return;
+  setStatusText(dom.viewerDataStatus, "Loading completed local run...", "running");
+  try {
+    const job = await localRunnerRequest(`/jobs/${encodeURIComponent(jobId)}`);
+    const outputName = fileNameFromPath(job.output) || `${job.name || "openqp_job"}.out`;
+    const xyzName = fileNameFromPath(job.xyz) || `${job.name || "openqp_job"}.xyz`;
+    const logText = job.log || "";
+    let parsed;
+    let sourceText = logText;
+    try {
+      parsed = parseViewerData(logText, outputName);
+    } catch (error) {
+      sourceText = job.xyzText || "";
+      parsed = parseViewerData(sourceText, xyzName);
+      parsed.sample = [
+        parsed.sample,
+        "",
+        "Output log did not include a readable coordinate block. Geometry was loaded from the run XYZ file.",
+        job.output ? `Output: ${job.output}` : ""
+      ].filter(Boolean).join("\n");
+    }
+    if (dom.viewerDataInput) dom.viewerDataInput.value = logText || sourceText;
+    state.analysisXYZ = parsed.xyz;
+    lastMoleculeSignature = "";
+    parsed.status = `Loaded local run ${job.name || job.id}.`;
+    parsed.summary = [
+      `Run status: ${job.status || "unknown"}`,
+      job.output ? `Output: ${job.output}` : `Job: ${job.id}`,
+      ...parsed.summary
+    ];
+    setStatusText(dom.viewerDataStatus, parsed.status, "ok");
+    updateAnalysisSummary(parsed);
+    updateMoleculeViewer();
+  } catch (error) {
+    setStatusText(dom.viewerDataStatus, error.message || "Could not load the completed local run.", "error");
+  }
+}
+
+function fileNameFromPath(path) {
+  return String(path || "").split(/[\\/]/).filter(Boolean).at(-1) || "";
 }
 
 init();

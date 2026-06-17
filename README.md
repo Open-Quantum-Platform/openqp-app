@@ -8,6 +8,9 @@ Baseline behavior:
 - downloadable `.inp` and `.xyz` files without login
 - optional localhost runner for direct use of the user's installed `openqp`
 - guided direct-run setup with a downloadable OpenQP installer helper
+- direct-run button stays disabled until the local runner, OpenQP command, and
+  pairing code are ready
+- completed direct runs open the local analysis page automatically
 - local run commands and OS-specific run scripts without registration
 - local run scripts for macOS/Linux shell, Windows PowerShell, and Windows
   Command Prompt
@@ -36,6 +39,10 @@ Local runner:
   if the browser allows HTTPS-to-localhost access.
 - Enter the printed pairing code in the workflow page and use
   `Run with local OpenQP`.
+- The run button remains disabled until the runner confirms that OpenQP is
+  available and the pairing code is accepted.
+- Completed jobs open `/analysis.html?job=...` through the local runner and load
+  the output/XYZ data into the analysis page.
 - The runner listens on `127.0.0.1:17651`, accepts only allowed browser origins,
   requires the pairing code, and runs `openqp input.inp` without shell strings.
   It also detects the installer helper's default `~/.openqp-local/venv/bin/openqp`

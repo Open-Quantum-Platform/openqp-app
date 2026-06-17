@@ -9,7 +9,7 @@
     />
     <title>OpenQP Workflow Builder</title>
     <link rel="icon" href="/assets/openqp-grid.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/assets/styles.css?v=20260618-local-setup" />
+    <link rel="stylesheet" href="/assets/styles.css?v=20260618-run-readiness" />
   </head>
   <body data-page="workflow">
     <header class="app-header">
@@ -274,14 +274,10 @@
                 <input id="localRunnerToken" type="password" autocomplete="off" placeholder="Code from local runner" />
               </label>
               <div class="download-row tight-row">
-                <a class="button secondary compact" href="/tools/openqp-local-runner.py" download>Download local runner</a>
-                <a class="button secondary compact" href="/tools/install-openqp-local.py" download>Download OpenQP installer</a>
-                <a class="button secondary compact" href="http://127.0.0.1:17651/workflow.html">Open local mode</a>
-                <button class="button secondary compact" id="checkLocalRunner" type="button">Check local runner</button>
-                <button class="button compact" id="runLocalOpenQp" type="button">Run with local OpenQP</button>
+                <button class="button compact" id="runLocalOpenQp" type="button" disabled>Run with local OpenQP</button>
                 <button class="button secondary compact" id="cancelLocalOpenQp" type="button" disabled>Stop run</button>
               </div>
-              <p class="microcopy" id="localRunnerStatus">Local runner not connected.</p>
+              <p class="microcopy" id="localRunnerStatus">Open setup, start the runner, then paste the pairing code to enable direct run.</p>
               <pre class="runner-log" id="localRunnerLog" aria-label="Local OpenQP runner log"></pre>
             </div>
             <label>
@@ -369,6 +365,7 @@
           <li>
             <strong>Check, then run.</strong>
             <p>Click Check local runner. If it finds OpenQP, click Run with local OpenQP. Results are written under your OpenQP Local Runs folder.</p>
+            <button class="button secondary compact" id="checkLocalRunner" type="button">Check local runner</button>
           </li>
         </ol>
       </div>
@@ -380,6 +377,6 @@
       <a href="https://github.com/Open-Quantum-Platform/openqp">OpenQP source</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
     </footer>
-    <script type="module" src="/assets/app.js?v=20260618-local-setup"></script>
+    <script type="module" src="/assets/app.js?v=20260618-run-readiness"></script>
   </body>
 </html>

@@ -27,7 +27,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 DEFAULT_PORT = 17651
 DEFAULT_ORIGINS = (
     "https://app.openqp.org",
@@ -257,6 +257,7 @@ class RunnerState:
                 raise KeyError(job_id)
             public = {key: value for key, value in job.items() if key != "process"}
         public["log"] = read_tail(Path(public["output"]))
+        public["xyzText"] = read_tail(Path(public["xyz"]))
         return public
 
 
@@ -381,6 +382,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/tools/openqp-local-runner.py":
             self.send_bytes(Path(__file__).read_bytes(), "text/x-python; charset=utf-8")
+            return
+        if path == "/pair":
+            if not self.require_token():
+                return
+            self.send_json({"ok": True, "paired": True})
             return
         if path.startswith("/jobs/"):
             if not self.require_token():

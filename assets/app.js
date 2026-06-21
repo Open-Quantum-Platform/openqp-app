@@ -3109,8 +3109,8 @@ function updateLocalRunnerJob(job) {
     queued: "Local OpenQP job is queued.",
     running: "Local OpenQP is running.",
     canceling: "Stopping local OpenQP run...",
-    complete: `Local OpenQP finished. Output: ${job.output || ""}`,
-    failed: `Local OpenQP failed. Output: ${job.output || ""}`,
+    complete: `Local OpenQP finished. Log: ${job.output || ""}`,
+    failed: `Local OpenQP failed. Log: ${job.output || job.stdout || ""}`,
     canceled: "Local OpenQP run was stopped.",
     timed_out: "Local OpenQP run timed out."
   }[status] || `Local OpenQP status: ${status}.`;
@@ -3671,7 +3671,7 @@ function parseOpenQpLogGeometry(text, fileName) {
   const frames = [];
   const energies = [];
   for (let i = 0; i < lines.length; i += 1) {
-    const energyMatch = lines[i].match(/(?:Final Energy|PyOQP state\s+\d+)\s+([-+0-9.Ee]+)/);
+    const energyMatch = lines[i].match(/(?:Final\s+(?:SCF\s+)?Energy|PyOQP state\s+\d+)\s*[:=]?\s*([-+0-9.Ee]+)/i);
     if (energyMatch) energies.push(Number(energyMatch[1]));
     if (!lines[i].includes("Cartesian Coordinate in Angstrom")) continue;
     const atoms = [];
@@ -3707,7 +3707,10 @@ function parseOpenQpLogGeometry(text, fileName) {
   }
   const atoms = frames.at(-1);
   const orbitalBlocks = (text.match(/Molecular Orbitals and Energies/g) || []).length;
-  const analysis = mergeAnalysis(textAnalysis, { energy: { values: energies.map((value, index) => ({ index: index + 1, label: `Energy ${index + 1}`, value, unit: "hartree" })) } });
+  const geometryEnergyValues = textAnalysis.energy.values.length
+    ? []
+    : energies.map((value, index) => ({ index: index + 1, label: `Energy ${index + 1}`, value, unit: "hartree" }));
+  const analysis = mergeAnalysis(textAnalysis, { energy: { values: geometryEnergyValues } });
   return {
     type: "OpenQP log",
     xyz: atomsToXYZ(atoms, `${fileName.replace(/\.(log|out|txt)$/i, "")} final frame`),
@@ -4136,7 +4139,7 @@ async function loadLocalRunnerJobFromUrl() {
     parsed.status = `Loaded local run ${job.name || job.id}.`;
     parsed.summary = [
       `Run status: ${job.status || "unknown"}`,
-      job.output ? `Output: ${job.output}` : `Job: ${job.id}`,
+      job.output ? `Log: ${job.output}` : `Job: ${job.id}`,
       ...parsed.summary
     ];
     setStatusText(dom.viewerDataStatus, parsed.status, "ok");

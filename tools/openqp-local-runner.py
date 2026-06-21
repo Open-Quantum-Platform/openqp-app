@@ -27,7 +27,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 DEFAULT_PORT = 17651
 ARTIFACT_TEXT_LIMIT = 750_000
 RESULT_ARTIFACT_SUFFIXES = (".hess.json", ".json", ".molden", ".mol", ".cube", ".cub", ".xyz")
@@ -184,7 +184,8 @@ class RunnerState:
             job_dir.mkdir(parents=True, exist_ok=False)
             input_path = job_dir / f"{job_name}.inp"
             xyz_path = job_dir / f"{job_name}.xyz"
-            output_path = job_dir / f"{job_name}.out"
+            log_path = job_dir / f"{job_name}.log"
+            stdout_path = job_dir / f"{job_name}.out"
             input_path.write_text(input_text, encoding="utf-8")
             xyz_path.write_text(xyz_text if xyz_text.endswith("\n") else f"{xyz_text}\n", encoding="utf-8")
             job = {
@@ -198,7 +199,8 @@ class RunnerState:
                 "directory": str(job_dir),
                 "input": str(input_path),
                 "xyz": str(xyz_path),
-                "output": str(output_path),
+                "output": str(log_path),
+                "stdout": str(stdout_path),
                 "process": None,
                 "error": None,
                 "timeoutSeconds": timeout,
@@ -216,7 +218,7 @@ class RunnerState:
             job["status"] = "running"
             job["startedAt"] = time.time()
 
-        output_path = Path(job["output"])
+        stdout_path = Path(job.get("stdout") or job["output"])
         job_dir = Path(job["directory"])
         input_name = Path(job["input"]).name
         env = os.environ.copy()
@@ -226,7 +228,7 @@ class RunnerState:
 
         try:
             openqp_command = self.openqp_path() or self.openqp_bin
-            with output_path.open("w", encoding="utf-8", errors="replace") as output:
+            with stdout_path.open("w", encoding="utf-8", errors="replace") as output:
                 output.write(f"OpenQP Local Runner {VERSION}\n")
                 output.write(f"Working directory: {job_dir}\n")
                 output.write(f"Command: {openqp_command} {input_name}\n\n")
@@ -293,10 +295,29 @@ class RunnerState:
             if not job:
                 raise KeyError(job_id)
             public = {key: value for key, value in job.items() if key != "process"}
-        public["log"] = read_tail(Path(public["output"]))
+        primary_log = self.primary_log_path(public)
+        stdout_path = Path(str(public.get("stdout") or public.get("output") or ""))
+        if stdout_path and stdout_path != primary_log:
+            public["stdout"] = str(stdout_path)
+        public["output"] = str(primary_log)
+        public["log"] = read_tail(primary_log) or read_tail(stdout_path)
+        public["stdoutText"] = read_tail(stdout_path) if stdout_path and stdout_path != primary_log else ""
         public["xyzText"] = read_tail(Path(public["xyz"]))
         public["artifacts"] = self.result_artifacts(public)
         return public
+
+    def primary_log_path(self, job: dict[str, Any]) -> Path:
+        output = Path(str(job.get("output") or ""))
+        if output.suffix.lower() == ".log":
+            return output
+        job_dir = Path(str(job.get("directory") or output.parent or "."))
+        job_name = safe_job_name(
+            str(job.get("name") or Path(str(job.get("input") or "")).stem or output.stem or "openqp_job")
+        )
+        log_path = job_dir / f"{job_name}.log"
+        if log_path.exists():
+            return log_path
+        return output
 
     def result_artifacts(self, job: dict[str, Any]) -> list[dict[str, Any]]:
         job_dir = Path(str(job.get("directory") or ""))
@@ -306,6 +327,7 @@ class RunnerState:
             Path(str(job.get("input") or "")).resolve(),
             Path(str(job.get("output") or "")).resolve(),
             Path(str(job.get("xyz") or "")).resolve(),
+            Path(str(job.get("stdout") or "")).resolve(),
         }
         artifacts: list[dict[str, Any]] = []
         for path in sorted(job_dir.iterdir(), key=lambda item: (artifact_rank(item), item.name.lower())):

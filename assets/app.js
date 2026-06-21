@@ -4091,21 +4091,46 @@ async function loadLocalRunnerJobFromUrl() {
     const outputName = fileNameFromPath(job.output) || `${job.name || "openqp_job"}.out`;
     const xyzName = fileNameFromPath(job.xyz) || `${job.name || "openqp_job"}.xyz`;
     const logText = job.log || "";
-    let parsed;
-    let sourceText = logText;
-    try {
-      parsed = parseViewerData(logText, outputName);
-    } catch (error) {
-      sourceText = job.xyzText || "";
-      parsed = parseViewerData(sourceText, xyzName);
-      parsed.sample = [
-        parsed.sample,
-        "",
-        "Output log did not include a readable coordinate block. Geometry was loaded from the run XYZ file.",
-        job.output ? `Output: ${job.output}` : ""
-      ].filter(Boolean).join("\n");
+    const candidates = [
+      ...localRunnerArtifacts(job).map((artifact) => ({
+        name: artifact.name || fileNameFromPath(artifact.path) || "openqp-result.json",
+        text: artifact.text || "",
+        label: artifact.name || fileNameFromPath(artifact.path) || "result artifact"
+      })),
+      { name: outputName, text: logText, label: outputName }
+    ].filter((candidate) => candidate.text.trim());
+    let resultParsed = null;
+    let resultText = "";
+    let resultLabel = "";
+    for (const candidate of candidates) {
+      try {
+        const candidateParsed = parseViewerData(candidate.text, candidate.name);
+        if (!resultParsed || parsedHasMoleculeGeometry(candidateParsed) || hasAnalysisData(candidateParsed.analysis)) {
+          resultParsed = candidateParsed;
+          resultText = candidate.text;
+          resultLabel = candidate.label;
+        }
+        if (parsedHasMoleculeGeometry(candidateParsed) && hasAnalysisData(candidateParsed.analysis)) break;
+      } catch (error) {
+        // Keep trying lower-priority local-run artifacts.
+      }
     }
-    if (dom.viewerDataInput) dom.viewerDataInput.value = logText || sourceText;
+
+    let geometryParsed = parsedHasMoleculeGeometry(resultParsed) ? resultParsed : null;
+    if (!geometryParsed && job.xyzText) {
+      geometryParsed = parseViewerData(job.xyzText, xyzName);
+    }
+    if (!resultParsed && geometryParsed) {
+      resultParsed = geometryParsed;
+      resultText = job.xyzText || "";
+      resultLabel = xyzName;
+    }
+    if (!resultParsed) throw new Error("The completed local run did not include readable log, JSON, or XYZ data.");
+
+    const parsed = geometryParsed && resultParsed !== geometryParsed
+      ? mergeLocalRunnerResultWithGeometry(resultParsed, geometryParsed, resultLabel)
+      : resultParsed;
+    if (dom.viewerDataInput) dom.viewerDataInput.value = resultText || logText || job.xyzText || "";
     state.analysisXYZ = parsed.xyz;
     lastMoleculeSignature = "";
     parsed.status = `Loaded local run ${job.name || job.id}.`;
@@ -4136,6 +4161,52 @@ async function loadLocalRunnerJobFromUrl() {
     });
     updateMoleculeViewer();
   }
+}
+
+function localRunnerArtifacts(job) {
+  return (Array.isArray(job.artifacts) ? job.artifacts : [])
+    .filter((artifact) => artifact && typeof artifact.text === "string" && artifact.text.trim() && !artifact.truncated)
+    .sort((a, b) => localRunnerArtifactRank(a) - localRunnerArtifactRank(b));
+}
+
+function localRunnerArtifactRank(artifact) {
+  const name = String(artifact.name || artifact.path || "").toLowerCase();
+  if (name.endsWith(".hess.json") || (name.includes("hess") && name.endsWith(".json"))) return 0;
+  if (name.endsWith(".json")) return 1;
+  if (name.endsWith(".molden") || name.endsWith(".mol")) return 2;
+  if (name.endsWith(".cube") || name.endsWith(".cub")) return 3;
+  if (name.endsWith(".xyz")) return 4;
+  return 9;
+}
+
+function parsedHasMoleculeGeometry(parsed) {
+  return Number(parsed?.atoms || 0) > 0 && parseXYZ(parsed.xyz || "").length > 0;
+}
+
+function mergeLocalRunnerResultWithGeometry(resultParsed, geometryParsed, resultLabel) {
+  const summary = [];
+  const addSummary = (item) => {
+    if (item && !summary.includes(item)) summary.push(item);
+  };
+  (resultParsed.summary || []).forEach(addSummary);
+  addSummary(`Results loaded from ${resultLabel || "local run output"}.`);
+  addSummary("Molecule geometry loaded from the local-run XYZ file.");
+  (geometryParsed.summary || []).forEach(addSummary);
+  return {
+    ...geometryParsed,
+    type: resultParsed.type || geometryParsed.type,
+    heading: resultParsed.heading || `${resultParsed.type || "Local run"} loaded`,
+    orbitals: resultParsed.orbitals || geometryParsed.orbitals,
+    energies: resultParsed.energies || geometryParsed.energies,
+    summary,
+    sample: [
+      resultParsed.sample,
+      "",
+      "Geometry was loaded from the local-run XYZ file so the molecule viewer can render the completed job.",
+      geometryParsed.sample
+    ].filter(Boolean).join("\n"),
+    analysis: mergeAnalysis(resultParsed.analysis, geometryParsed.analysis)
+  };
 }
 
 function fileNameFromPath(path) {

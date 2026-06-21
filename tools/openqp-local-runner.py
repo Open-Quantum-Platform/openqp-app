@@ -27,8 +27,10 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 DEFAULT_PORT = 17651
+ARTIFACT_TEXT_LIMIT = 750_000
+RESULT_ARTIFACT_SUFFIXES = (".hess.json", ".json", ".molden", ".mol", ".cube", ".cub", ".xyz")
 DEFAULT_ORIGINS = (
     "https://app.openqp.org",
     "http://127.0.0.1:17651",
@@ -71,6 +73,41 @@ def read_tail(path: Path, limit: int = 24000) -> str:
         size = handle.tell()
         handle.seek(max(0, size - limit), os.SEEK_SET)
         return handle.read().decode("utf-8", errors="replace")
+
+
+def read_text_artifact(path: Path, limit: int = ARTIFACT_TEXT_LIMIT) -> tuple[str, bool]:
+    if not path.exists():
+        return "", False
+    size = path.stat().st_size
+    if size > limit:
+        return read_tail(path, limit), True
+    return path.read_text(encoding="utf-8", errors="replace"), False
+
+
+def artifact_kind(path: Path) -> str:
+    name = path.name.lower()
+    if name.endswith(".hess.json") or ("hess" in name and name.endswith(".json")):
+        return "hessian-json"
+    if name.endswith(".json"):
+        return "json"
+    if name.endswith((".molden", ".mol")):
+        return "molden"
+    if name.endswith((".cube", ".cub")):
+        return "cube"
+    if name.endswith(".xyz"):
+        return "xyz"
+    return "result"
+
+
+def artifact_rank(path: Path) -> int:
+    kind = artifact_kind(path)
+    return {
+        "hessian-json": 0,
+        "json": 1,
+        "molden": 2,
+        "cube": 3,
+        "xyz": 4,
+    }.get(kind, 9)
 
 
 class RunnerState:
@@ -258,7 +295,38 @@ class RunnerState:
             public = {key: value for key, value in job.items() if key != "process"}
         public["log"] = read_tail(Path(public["output"]))
         public["xyzText"] = read_tail(Path(public["xyz"]))
+        public["artifacts"] = self.result_artifacts(public)
         return public
+
+    def result_artifacts(self, job: dict[str, Any]) -> list[dict[str, Any]]:
+        job_dir = Path(str(job.get("directory") or ""))
+        if not job_dir.exists():
+            return []
+        skipped = {
+            Path(str(job.get("input") or "")).resolve(),
+            Path(str(job.get("output") or "")).resolve(),
+            Path(str(job.get("xyz") or "")).resolve(),
+        }
+        artifacts: list[dict[str, Any]] = []
+        for path in sorted(job_dir.iterdir(), key=lambda item: (artifact_rank(item), item.name.lower())):
+            if not path.is_file():
+                continue
+            if path.resolve() in skipped:
+                continue
+            if not path.name.lower().endswith(RESULT_ARTIFACT_SUFFIXES):
+                continue
+            text, truncated = read_text_artifact(path)
+            artifacts.append(
+                {
+                    "name": path.name,
+                    "path": str(path),
+                    "kind": artifact_kind(path),
+                    "size": path.stat().st_size,
+                    "truncated": truncated,
+                    "text": text,
+                }
+            )
+        return artifacts[:8]
 
 
 class RequestHandler(BaseHTTPRequestHandler):

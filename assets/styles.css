@@ -594,6 +594,30 @@ form {
   max-width: 760px;
 }
 
+.site-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin-top: 16px;
+  padding: 8px 10px;
+  color: #eaf8f5;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.site-counter span {
+  font-size: 0.86rem;
+  font-weight: 760;
+}
+
+.site-counter img {
+  display: block;
+  height: 20px;
+}
+
 .prompt-examples button {
   min-height: 36px;
   padding: 7px 11px;

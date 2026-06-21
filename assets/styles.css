@@ -1244,6 +1244,135 @@ textarea {
   width: 100%;
 }
 
+.analysis-results {
+  padding: 0 clamp(18px, 5vw, 72px) clamp(40px, 7vw, 76px);
+}
+
+.analysis-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.analysis-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  box-shadow: none;
+}
+
+.analysis-card h3 {
+  font-size: 1.3rem;
+}
+
+.wide-card {
+  grid-column: 1 / -1;
+}
+
+.analysis-viewer {
+  display: grid;
+  gap: 12px;
+}
+
+.viewer-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+.analysis-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analysis-metric {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  background: #f7faf8;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.analysis-metric span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.analysis-metric strong {
+  font-size: 1rem;
+}
+
+.mini-chart,
+.spectrum-chart {
+  width: 100%;
+  min-height: 170px;
+  background: #f8fbfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.mini-chart svg,
+.spectrum-chart svg {
+  display: block;
+  width: 100%;
+  height: 190px;
+}
+
+.analysis-table-wrap {
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.analysis-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.analysis-table th,
+.analysis-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.analysis-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #eef6f3;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.analysis-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.normal-mode-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, 0.65fr);
+  gap: 12px;
+  padding: 12px;
+  background: #f7faf8;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.normal-mode-controls[hidden] {
+  display: none;
+}
+
+.normal-mode-controls .microcopy {
+  grid-column: 1 / -1;
+}
+
 .microcopy {
   margin: 0;
   color: var(--muted);
@@ -1326,6 +1455,7 @@ footer a {
   .workflow-hero,
   .workflow-layout,
   .analysis-layout,
+  .analysis-card-grid,
   .execution {
     grid-template-columns: 1fr;
   }
@@ -1352,6 +1482,10 @@ footer a {
     min-height: 380px;
   }
 
+  .wide-card {
+    grid-column: auto;
+  }
+
 }
 
 @media (max-width: 760px) {
@@ -1363,6 +1497,11 @@ footer a {
 
   nav {
     justify-content: flex-start;
+  }
+
+  .analysis-metric-grid,
+  .normal-mode-controls {
+    grid-template-columns: 1fr;
   }
 
   .prompt-hero {

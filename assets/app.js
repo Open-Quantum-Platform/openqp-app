@@ -1049,7 +1049,8 @@ const functionalOptions = [
 const state = {
   workflow: workflows[0],
   analysisXYZ: molecules.caffeine.xyz,
-  analysisJobMode: false
+  analysisJobMode: false,
+  analysisResult: createEmptyAnalysisResult()
 };
 
 const viewerState = {
@@ -1057,7 +1058,8 @@ const viewerState = {
   labels: false,
   numbers: false,
   axis: false,
-  spin: true
+  spin: true,
+  modePhase: 0
 };
 
 let renderer;
@@ -1918,6 +1920,15 @@ function setupViewerControls() {
   numberToggle?.addEventListener("change", (event) => { viewerState.numbers = event.target.checked; forceViewerRefresh(); });
   axisToggle?.addEventListener("change", (event) => { viewerState.axis = event.target.checked; forceViewerRefresh(); });
   spinToggle?.addEventListener("change", (event) => { viewerState.spin = event.target.checked; });
+  document.querySelector("#normalModeSelect")?.addEventListener("change", () => {
+    viewerState.modePhase = 0;
+    updateModeStatus();
+    forceViewerRefresh();
+  });
+  document.querySelector("#modeAmplitude")?.addEventListener("input", () => {
+    updateModeStatus();
+    forceViewerRefresh();
+  });
   document.querySelector("#resetView")?.addEventListener("click", () => {
     moleculeRoot?.rotation.set(-0.28, 0.55, 0.04);
   });
@@ -1995,9 +2006,41 @@ function normalizeSymbol(value) {
   return clean[0].toUpperCase() + clean.slice(1).toLowerCase();
 }
 
+function activeNormalMode() {
+  const modes = state.analysisResult?.vibrations?.modes || [];
+  const index = Number(dom.normalModeSelect?.value ?? -1);
+  const mode = modes[index];
+  return mode?.vectors?.length ? mode : null;
+}
+
+function modeAmplitudeValue() {
+  return Number(dom.modeAmplitude?.value || 0.35);
+}
+
+function normalModeSignature() {
+  const mode = activeNormalMode();
+  if (!mode) return "";
+  return `${dom.normalModeSelect?.value || 0}|${modeAmplitudeValue()}|${viewerState.modePhase.toFixed(2)}`;
+}
+
+function atomsWithNormalMode(atoms) {
+  const mode = activeNormalMode();
+  if (!mode) return atoms;
+  const phase = Math.sin(viewerState.modePhase);
+  const amplitude = modeAmplitudeValue();
+  return atoms.map((atom, index) => {
+    const vector = mode.vectors[index];
+    if (!vector) return atom;
+    return {
+      ...atom,
+      position: atom.position.clone().add(new THREE.Vector3(vector.x, vector.y, vector.z).multiplyScalar(amplitude * phase))
+    };
+  });
+}
+
 function updateMoleculeViewer() {
   const mode = dom.surfaceMode?.value || "molecule";
-  const signature = `${moleculeDisplayLabel()}|${mode}|${viewerState.style}|${viewerState.labels}|${viewerState.numbers}|${viewerState.axis}|${xyzBody()}`;
+  const signature = `${moleculeDisplayLabel()}|${mode}|${viewerState.style}|${viewerState.labels}|${viewerState.numbers}|${viewerState.axis}|${normalModeSignature()}|${xyzBody()}`;
   if (signature === lastMoleculeSignature) return;
   lastMoleculeSignature = signature;
 
@@ -2011,6 +2054,8 @@ function updateMoleculeViewer() {
   }
 
   if (!moleculeRoot || !renderer) return;
+  const hadMolecule = moleculeRoot.children.length > 0;
+  const previousRotation = moleculeRoot.rotation.clone();
   moleculeRoot.clear();
   if (atoms.length === 0) return;
 
@@ -2019,12 +2064,15 @@ function updateMoleculeViewer() {
   const bounds = new THREE.Box3().setFromPoints(normalizedAtoms.map((atom) => atom.position));
   const size = bounds.getSize(new THREE.Vector3()).length() || 1;
   const scale = 2.9 / size;
+  const displayAtoms = atomsWithNormalMode(normalizedAtoms);
 
-  addSurfacePreview(normalizedAtoms, scale);
-  addBonds(normalizedAtoms, scale);
-  addAtoms(normalizedAtoms, scale);
+  addSurfacePreview(displayAtoms, scale);
+  addBonds(displayAtoms, scale);
+  addAtoms(displayAtoms, scale);
+  addNormalModeArrows(normalizedAtoms, scale);
   if (viewerState.axis) moleculeRoot.add(createAxisGroup());
-  moleculeRoot.rotation.set(-0.28, 0.55, 0.04);
+  if (hadMolecule) moleculeRoot.rotation.copy(previousRotation);
+  else moleculeRoot.rotation.set(-0.28, 0.55, 0.04);
   renderer.render(scene, camera);
   updateViewerDebugStats();
 }
@@ -2064,6 +2112,22 @@ function addAtoms(atoms, scale) {
       moleculeRoot.add(sprite);
     }
   }
+}
+
+function addNormalModeArrows(atoms, scale) {
+  const mode = activeNormalMode();
+  if (!mode || !moleculeRoot) return;
+  const material = new THREE.LineBasicMaterial({ color: 0xf2c45f, transparent: true, opacity: 0.72 });
+  const amplitude = Math.max(0.35, modeAmplitudeValue() * 1.8);
+  atoms.forEach((atom, index) => {
+    const vector = mode.vectors[index];
+    if (!vector) return;
+    const start = atom.position.clone().multiplyScalar(scale);
+    const end = atom.position.clone().add(new THREE.Vector3(vector.x, vector.y, vector.z).multiplyScalar(amplitude)).multiplyScalar(scale);
+    if (start.distanceTo(end) < 0.03) return;
+    moleculeRoot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([start, end]), material));
+    moleculeRoot.add(createSurfaceMesh(end, new THREE.Vector3(0.055, 0.055, 0.055), 0xf2c45f, 0.78));
+  });
 }
 
 function atomRadiusForStyle(style, moleculeScale = 1) {
@@ -2256,6 +2320,12 @@ function createTextSprite(text, color = 0xffffff) {
 function animateMolecule() {
   if (!renderer || !scene || !camera) return;
   requestAnimationFrame(animateMolecule);
+  if (activeNormalMode()) {
+    viewerState.modePhase = (viewerState.modePhase + 0.12) % (Math.PI * 2);
+    lastMoleculeSignature = "";
+    updateMoleculeViewer();
+    return;
+  }
   if (moleculeRoot && !dragging && viewerState.spin) moleculeRoot.rotation.y += 0.0045;
   renderer.render(scene, camera);
   viewerDebugFrame = (viewerDebugFrame + 1) % 30;
@@ -3143,6 +3213,7 @@ async function loadViewerDataText(rawText, fileName) {
     }
     lastMoleculeSignature = "";
     setStatusText(dom.viewerDataStatus, parsed.status, "ok");
+    applyParsedAnalysis(parsed);
     updateAnalysisSummary(parsed);
     if (dom.preview) renderPreview();
     else updateMoleculeViewer();
@@ -3151,13 +3222,322 @@ async function loadViewerDataText(rawText, fileName) {
   }
 }
 
+function createEmptyAnalysisResult() {
+  return {
+    energy: { values: [] },
+    orbitals: { levels: [] },
+    vibrations: { modes: [], units: {} },
+    nmr: { tensors: [] },
+    hessian: { matrix: null, metadata: {}, dimension: 0 },
+    surfaces: []
+  };
+}
+
+function applyParsedAnalysis(parsed) {
+  state.analysisResult = normalizeAnalysisResult(parsed.analysis || createEmptyAnalysisResult());
+  syncNormalModeControls();
+  renderAnalysisViewers();
+}
+
+function normalizeAnalysisResult(analysis) {
+  const empty = createEmptyAnalysisResult();
+  return {
+    energy: { ...empty.energy, ...(analysis.energy || {}) },
+    orbitals: { ...empty.orbitals, ...(analysis.orbitals || {}) },
+    vibrations: { ...empty.vibrations, ...(analysis.vibrations || {}) },
+    nmr: { ...empty.nmr, ...(analysis.nmr || {}) },
+    hessian: { ...empty.hessian, ...(analysis.hessian || {}) },
+    surfaces: analysis.surfaces || []
+  };
+}
+
+function hasAnalysisData(analysis) {
+  const normalized = normalizeAnalysisResult(analysis);
+  return Boolean(
+    normalized.energy.values.length ||
+    normalized.orbitals.levels.length ||
+    normalized.vibrations.modes.length ||
+    normalized.nmr.tensors.length ||
+    normalized.hessian.matrix ||
+    normalized.surfaces.length
+  );
+}
+
+function mergeAnalysis(...items) {
+  const merged = createEmptyAnalysisResult();
+  for (const item of items.filter(Boolean).map(normalizeAnalysisResult)) {
+    merged.energy.values.push(...(item.energy.values || []));
+    merged.orbitals.levels.push(...(item.orbitals.levels || []));
+    merged.vibrations.modes.push(...(item.vibrations.modes || []));
+    merged.nmr.tensors.push(...(item.nmr.tensors || []));
+    merged.surfaces.push(...(item.surfaces || []));
+    if (item.energy.energy !== undefined) merged.energy.energy = item.energy.energy;
+    if (item.orbitals.source) merged.orbitals.source = item.orbitals.source;
+    if (item.vibrations.units) merged.vibrations.units = { ...(merged.vibrations.units || {}), ...item.vibrations.units };
+    if (item.hessian.matrix) merged.hessian = item.hessian;
+  }
+  merged.energy.values = dedupeAnalysisRows(merged.energy.values, (row) => `${row.label}|${row.value}|${row.index}`);
+  merged.orbitals.levels = dedupeAnalysisRows(merged.orbitals.levels, (row) => `${row.index}|${row.energy}|${row.spin}|${row.occupation}`);
+  merged.vibrations.modes = dedupeAnalysisRows(merged.vibrations.modes, (row) => `${row.index}|${row.frequency}`);
+  return merged;
+}
+
+function dedupeAnalysisRows(rows, keyFn) {
+  const seen = new Set();
+  return rows.filter((row) => {
+    const key = keyFn(row);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function extractTextAnalysis(text) {
+  return mergeAnalysis(
+    { energy: { values: extractEnergyValues(text) } },
+    { vibrations: { modes: extractVibrationsFromText(text), units: { frequency: "cm-1" } } },
+    { nmr: { tensors: extractNmrTensorsFromText(text) } }
+  );
+}
+
+function extractEnergyValues(text) {
+  const values = [];
+  const patterns = [
+    /(?:Final\s+(?:SCF\s+)?Energy|Total\s+Energy|SCF\s+Energy|PyOQP state\s+\d+)\s*[:=]?\s*([-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?)/gi,
+    /^\s*(?:step\s+)?(\d+)\s+([-+]?\d+\.\d+(?:[Ee][-+]?\d+)?)\s+(?:[-+]?\d|\s*$)/gim
+  ];
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(text))) {
+      const value = Number(match[2] || match[1]);
+      if (!Number.isFinite(value) || Math.abs(value) < 1e-12) continue;
+      const index = values.length + 1;
+      values.push({ index, label: `E${index}`, value, unit: "hartree" });
+    }
+  }
+  return values;
+}
+
+function extractVibrationsFromText(text) {
+  const modes = [];
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    if (!/(freq|frequency|cm-1|ir|raman)/i.test(line)) continue;
+    const numbers = numericValues(line);
+    if (!numbers.length) continue;
+    const frequency = numbers.find((value) => Math.abs(value) > 20 && Math.abs(value) < 10000);
+    if (!Number.isFinite(frequency)) continue;
+    const mode = {
+      index: modes.length + 1,
+      frequency,
+      ir: /ir|infrared/i.test(line) ? numbers.at(-1) : undefined,
+      raman: /raman/i.test(line) ? numbers.at(-1) : undefined,
+      vectors: []
+    };
+    modes.push(mode);
+  }
+  return modes;
+}
+
+function extractNmrTensorsFromText(text) {
+  if (!/(nmr|shield|shielding|sigma|tensor)/i.test(text)) return [];
+  const tensors = [];
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || /^[#=-]/.test(trimmed)) continue;
+    const rowBody = trimmed.replace(/^(?:\d+\s+)?[A-Z][a-z]?\d*\b\s*/, "");
+    const numbers = numericValues(rowBody);
+    if (numbers.length < 2) continue;
+    const atom = trimmed.match(/^(?:\d+\s+)?([A-Z][a-z]?)(?:\d+)?\b/)?.[1] || `Atom ${tensors.length + 1}`;
+    if (!atom || /^(NMR|ISO|Tensor)$/i.test(atom)) continue;
+    const tensor = numbers.length >= 9 ? [numbers.slice(-9, -6), numbers.slice(-6, -3), numbers.slice(-3)] : null;
+    const iso = tensor ? (tensor[0][0] + tensor[1][1] + tensor[2][2]) / 3 : numbers[0];
+    tensors.push({ atom, index: tensors.length + 1, iso, anisotropy: numbers[1], tensor });
+  }
+  return tensors.slice(0, 80);
+}
+
+function extractJsonAnalysis(source) {
+  const analysis = createEmptyAnalysisResult();
+  if (Number.isFinite(Number(source.energy))) {
+    analysis.energy.energy = Number(source.energy);
+    analysis.energy.values.push({ index: 1, label: "Energy", value: Number(source.energy), unit: "hartree" });
+  }
+  const energies = firstArray(source.energies, source.energy_history, source.energyHistory, source.data?.energies);
+  if (energies) {
+    analysis.energy.values.push(...energies.map((value, index) => ({ index: index + 1, label: `Step ${index + 1}`, value: Number(value), unit: "hartree" })).filter((row) => Number.isFinite(row.value)));
+  }
+  const orbitalValues = firstArray(source.orbital_energies, source.orbitalEnergy, source.mo_energy, source.orbitals?.energies, source.data?.orbital_energies);
+  if (orbitalValues) {
+    analysis.orbitals.levels = orbitalValues.map((energy, index) => ({
+      index: index + 1,
+      energy: Number(energy),
+      occupation: Number(firstArray(source.occupations, source.mo_occ, source.orbitals?.occupations)?.[index] || 0),
+      spin: "Alpha"
+    })).filter((row) => Number.isFinite(row.energy));
+    analysis.orbitals.source = "JSON";
+  }
+  const vibrationAnalysis = extractJsonVibrations(source);
+  analysis.vibrations = vibrationAnalysis.vibrations;
+  analysis.hessian = vibrationAnalysis.hessian;
+  analysis.nmr.tensors = extractJsonNmrTensors(source);
+  return analysis;
+}
+
+function extractJsonVibrations(source) {
+  const frequencies = firstArray(source.freqs, source.frequencies, source.frequency_modes?.["frequencies_cm-1"], source.vibrations?.frequencies);
+  const rawModes = firstArray(source.modes, source.normal_modes, source.frequency_modes?.normal_mode_eigenvectors, source.vibrations?.modes);
+  const ir = firstArray(source.infrared_intensities, source.ir_intensities, source.vibrations?.ir);
+  const raman = firstArray(source.raman_activities, source.vibrations?.raman);
+  const modes = (frequencies || []).map((frequency, index) => ({
+    index: index + 1,
+    frequency: Number(frequency),
+    ir: Number(ir?.[index]),
+    raman: Number(raman?.[index]),
+    vectors: normalizeModeVectors(rawModes?.[index] || [], atomCountFromJson(source))
+  })).filter((mode) => Number.isFinite(mode.frequency));
+  const hessian = Array.isArray(source.hessian)
+    ? {
+        matrix: source.hessian,
+        metadata: source.hessian_metadata || {},
+        dimension: source.hessian.length,
+        energy: Number(source.energy),
+        maxAbs: maxAbsMatrix(source.hessian),
+        trace: traceMatrix(source.hessian)
+      }
+    : { matrix: null, metadata: {}, dimension: 0 };
+  return {
+    vibrations: {
+      modes,
+      units: {
+        frequency: "cm-1",
+        ir: source.vibrational_intensity_metadata?.ir_units || "km/mol",
+        raman: source.vibrational_intensity_metadata?.raman_units || "A^4/amu"
+      },
+      metadata: source.vibrational_intensity_metadata || {}
+    },
+    hessian
+  };
+}
+
+function extractJsonNmrTensors(source) {
+  const candidates = [source.nmr, source.nmr_shielding, source.shielding, source.properties?.nmr, source.data?.nmr].filter(Boolean);
+  const tensors = [];
+  for (const candidate of candidates) {
+    const rows = Array.isArray(candidate) ? candidate : candidate.tensors || candidate.atoms || candidate.shieldings || [];
+    for (const row of rows) {
+      if (!row) continue;
+      const tensor = row.tensor || row.shielding_tensor || row.sigma || null;
+      const flatTensor = Array.isArray(tensor) ? tensor.flat().map(Number) : [];
+      const matrix = flatTensor.length >= 9 ? [flatTensor.slice(0, 3), flatTensor.slice(3, 6), flatTensor.slice(6, 9)] : null;
+      const iso = Number(row.iso ?? row.isotropic ?? row.sigma_iso ?? (matrix ? (matrix[0][0] + matrix[1][1] + matrix[2][2]) / 3 : NaN));
+      if (!Number.isFinite(iso) && !matrix) continue;
+      tensors.push({
+        atom: normalizeSymbol(row.atom || row.symbol || row.element) || `Atom ${tensors.length + 1}`,
+        index: Number(row.index || tensors.length + 1),
+        iso,
+        anisotropy: Number(row.anisotropy ?? row.aniso),
+        tensor: matrix
+      });
+    }
+  }
+  return tensors;
+}
+
+function parseMoldenOrbitals(text) {
+  const section = text.split(/^\[MO\]/im)[1] || "";
+  if (!section) return [];
+  const levels = [];
+  let current = null;
+  for (const rawLine of section.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    const energy = line.match(/^Ene=\s*([-+0-9.Ee]+)/i);
+    if (energy) {
+      if (current) levels.push(current);
+      current = { index: levels.length + 1, energy: Number(energy[1]), occupation: 0, spin: "", symmetry: "" };
+      continue;
+    }
+    if (!current) continue;
+    const spin = line.match(/^Spin=\s*(.+)$/i);
+    const occupation = line.match(/^Occup=\s*([-+0-9.Ee]+)/i);
+    const symmetry = line.match(/^Sym=\s*(.+)$/i);
+    if (spin) current.spin = spin[1].trim();
+    if (occupation) current.occupation = Number(occupation[1]);
+    if (symmetry) current.symmetry = symmetry[1].trim();
+  }
+  if (current) levels.push(current);
+  return levels.filter((level) => Number.isFinite(level.energy));
+}
+
+function firstArray(...values) {
+  return values.find((value) => Array.isArray(value));
+}
+
+function atomCountFromJson(source) {
+  if (Array.isArray(source.atoms)) return source.atoms.length;
+  if (Array.isArray(source.coord)) return Math.floor(source.coord.length / 3);
+  return 0;
+}
+
+function normalizeModeVectors(rawMode, atomCount) {
+  if (!Array.isArray(rawMode) || !atomCount) return [];
+  const flat = rawMode.flat().map(Number).filter(Number.isFinite);
+  const vectors = [];
+  for (let i = 0; i < atomCount; i += 1) {
+    vectors.push({ x: flat[i * 3] || 0, y: flat[i * 3 + 1] || 0, z: flat[i * 3 + 2] || 0 });
+  }
+  const maxLength = Math.max(...vectors.map((vector) => Math.hypot(vector.x, vector.y, vector.z)), 0);
+  if (!maxLength) return vectors;
+  return vectors.map((vector) => ({ x: vector.x / maxLength, y: vector.y / maxLength, z: vector.z / maxLength }));
+}
+
+function numericValues(text) {
+  return [...text.matchAll(/[-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?/g)].map((match) => Number(match[0])).filter(Number.isFinite);
+}
+
+function maxAbsMatrix(matrix) {
+  return Math.max(...matrix.flat().map((value) => Math.abs(Number(value))).filter(Number.isFinite), 0);
+}
+
+function traceMatrix(matrix) {
+  return matrix.reduce((sum, row, index) => sum + Number(row?.[index] || 0), 0);
+}
+
 function parseViewerData(text, fileName = "data.txt") {
   if (/\.(cube|cub)$/i.test(fileName) || looksLikeCube(text)) return parseCubeGeometry(text, fileName);
   if (/\.(molden|mol)$/i.test(fileName) || /\[Atoms\]/i.test(text)) return parseMoldenGeometry(text, fileName);
   if (/\.(json)$/i.test(fileName) || looksLikeJson(text)) return parseJsonGeometry(text, fileName);
   if (/\.(log|out)$/i.test(fileName) || text.includes("Cartesian Coordinate in Angstrom")) return parseOpenQpLogGeometry(text, fileName);
+  const textAnalysis = extractTextAnalysis(text);
+  if (hasAnalysisData(textAnalysis) && looksLikeResultSectionText(text)) return parseResultOnlyText(text, fileName, textAnalysis);
   if (looksLikeXYZ(text)) return parseXyzGeometry(text, fileName);
+  if (hasAnalysisData(textAnalysis)) return parseResultOnlyText(text, fileName, textAnalysis);
   throw new Error("Supported local formats are XYZ, OpenQP log/out, Molden, cube, and JSON geometry.");
+}
+
+function looksLikeResultSectionText(text) {
+  return /(nmr\s+shield|shielding\s+tensor|normal\s+mode|frequenc|cm-1|infrared|raman|hessian|orbital\s+energ|molecular\s+orbital|energy\s+(path|trace|history))/i.test(text);
+}
+
+function parseResultOnlyText(text, fileName, analysis = extractTextAnalysis(text)) {
+  const normalized = normalizeAnalysisResult(analysis);
+  return {
+    type: "Result text",
+    xyz: "0\nResult without geometry",
+    status: `Loaded result metadata from ${fileName}.`,
+    atoms: 0,
+    frames: 0,
+    orbitals: normalized.orbitals.levels.length,
+    energies: normalized.energy.values.map((row) => row.value),
+    summary: [
+      "No coordinate block found",
+      `${normalized.energy.values.length} energy value(s)`,
+      `${normalized.vibrations.modes.length} vibrational mode(s)`,
+      `${normalized.nmr.tensors.length} NMR tensor row(s)`
+    ],
+    sample: text.split(/\r?\n/).slice(0, 16).join("\n"),
+    analysis: normalized
+  };
 }
 
 function looksLikeXYZ(text) {
@@ -3177,7 +3557,8 @@ function parseXyzGeometry(text, fileName) {
     atoms: atoms.length,
     frames: 1,
     summary: [`${atoms.length} atoms`, "XYZ geometry loaded", "Ready for input generation or local analysis"],
-    sample: xyz.split("\n").slice(0, 8).join("\n")
+    sample: xyz.split("\n").slice(0, 8).join("\n"),
+    analysis: createEmptyAnalysisResult()
   };
 }
 
@@ -3199,7 +3580,8 @@ function parseMoldenGeometry(text, fileName) {
     if (symbol && [x, y, z].every(Number.isFinite)) atoms.push({ symbol, position: new THREE.Vector3(x, y, z) });
   }
   if (!atoms.length) throw new Error("Molden file did not contain readable atom coordinates.");
-  const moCount = (text.match(/^\s*Ene=/gim) || []).length;
+  const orbitals = parseMoldenOrbitals(text);
+  const moCount = orbitals.length;
   return {
     type: "Molden",
     xyz: atomsToXYZ(atoms, fileName.replace(/\.(molden|mol)$/i, "")),
@@ -3208,7 +3590,8 @@ function parseMoldenGeometry(text, fileName) {
     frames: 1,
     orbitals: moCount,
     summary: [`${atoms.length} atoms`, `${moCount} MO metadata records`, `Coordinate unit: ${unit}`],
-    sample: `Molden geometry imported from ${fileName}\nMO records: ${moCount}\nTrue MO isosurfaces require the advanced viewer.`
+    sample: `Molden geometry imported from ${fileName}\nMO records: ${moCount}\nTrue MO isosurfaces require the advanced viewer.`,
+    analysis: { ...createEmptyAnalysisResult(), orbitals: { levels: orbitals, source: "Molden" } }
   };
 }
 
@@ -3236,7 +3619,8 @@ function parseCubeGeometry(text, fileName) {
     atoms: atoms.length,
     frames: 1,
     summary: [`${atoms.length} atoms`, `Cube grid: ${grid}`, "Geometry loaded; true volumetric isosurfaces use the advanced viewer"],
-    sample: `Cube geometry imported from ${fileName}\nGrid: ${grid}\nVolumetric values are summarized here; use a dedicated cube viewer for full isosurfaces.`
+    sample: `Cube geometry imported from ${fileName}\nGrid: ${grid}\nVolumetric values are summarized here; use a dedicated cube viewer for full isosurfaces.`,
+    analysis: { ...createEmptyAnalysisResult(), surfaces: [{ type: "cube", grid, fileName }] }
   };
 }
 
@@ -3265,17 +3649,20 @@ function parseJsonGeometry(text, fileName) {
     });
   }
   atoms = atoms.filter((atom) => atom.symbol && [atom.position.x, atom.position.y, atom.position.z].every(Number.isFinite));
-  if (!atoms.length) throw new Error("JSON did not contain readable geometry.");
+  const analysis = extractJsonAnalysis(source);
+  if (!atoms.length && !hasAnalysisData(analysis)) throw new Error("JSON did not contain readable geometry.");
+  const xyz = atoms.length ? atomsToXYZ(atoms, fileName.replace(/\.json$/i, "")) : "0\nJSON result without geometry";
   const orbitalCount = countJsonOrbitals(source);
   return {
     type: "JSON",
-    xyz: atomsToXYZ(atoms, fileName.replace(/\.json$/i, "")),
-    status: `Loaded JSON geometry (${atoms.length} atoms${orbitalCount ? `, ${orbitalCount} orbital values` : ""}).`,
+    xyz,
+    status: atoms.length ? `Loaded JSON geometry (${atoms.length} atoms${orbitalCount ? `, ${orbitalCount} orbital values` : ""}).` : "Loaded JSON result data.",
     atoms: atoms.length,
     frames: 1,
     orbitals: orbitalCount,
-    summary: [`${atoms.length} atoms`, orbitalCount ? `${orbitalCount} orbital energy entries` : "No orbital arrays detected", "OpenQP JSON geometry loaded"],
-    sample: JSON.stringify({ source: fileName, atoms: atoms.length, orbitals: orbitalCount }, null, 2)
+    summary: [atoms.length ? `${atoms.length} atoms` : "No geometry", orbitalCount ? `${orbitalCount} orbital energy entries` : "No orbital arrays detected", "OpenQP JSON data loaded"],
+    sample: JSON.stringify({ source: fileName, atoms: atoms.length, orbitals: orbitalCount, modes: analysis.vibrations.modes.length }, null, 2),
+    analysis
   };
 }
 
@@ -3302,9 +3689,25 @@ function parseOpenQpLogGeometry(text, fileName) {
     }
     if (atoms.length) frames.push(atoms);
   }
-  if (!frames.length) throw new Error("No OpenQP Cartesian coordinate blocks were found.");
+  const textAnalysis = extractTextAnalysis(text);
+  if (!frames.length) {
+    if (!hasAnalysisData(textAnalysis)) throw new Error("No OpenQP Cartesian coordinate blocks were found.");
+    return {
+      type: "OpenQP output",
+      xyz: "0\nOpenQP result without geometry",
+      status: `Loaded result metadata from ${fileName}.`,
+      atoms: 0,
+      frames: 0,
+      orbitals: 0,
+      energies: textAnalysis.energy.values.map((row) => row.value),
+      summary: ["No coordinate block found", `${textAnalysis.energy.values.length} energy value(s)`, `${textAnalysis.vibrations.modes.length} vibrational mode(s)`],
+      sample: `OpenQP output: ${fileName}\nNo readable coordinate block was found; result viewers were populated from text metadata.`,
+      analysis: textAnalysis
+    };
+  }
   const atoms = frames.at(-1);
   const orbitalBlocks = (text.match(/Molecular Orbitals and Energies/g) || []).length;
+  const analysis = mergeAnalysis(textAnalysis, { energy: { values: energies.map((value, index) => ({ index: index + 1, label: `Energy ${index + 1}`, value, unit: "hartree" })) } });
   return {
     type: "OpenQP log",
     xyz: atomsToXYZ(atoms, `${fileName.replace(/\.(log|out|txt)$/i, "")} final frame`),
@@ -3319,12 +3722,13 @@ function parseOpenQpLogGeometry(text, fileName) {
       `frames: ${frames.length}`,
       `final atoms: ${atoms.length}`,
       energies.length ? `last energy-like value: ${energies.at(-1)}` : "energy: not detected"
-    ].join("\n")
+    ].join("\n"),
+    analysis
   };
 }
 
 function countJsonOrbitals(source) {
-  const candidates = [source.orbital_energies, source.orbitalEnergy, source.mo_energy, source.mol_energy, source.energies].filter(Array.isArray);
+  const candidates = [source.orbital_energies, source.orbitalEnergy, source.mo_energy, source.orbitals?.energies, source.mol_energy, source.energies].filter(Array.isArray);
   return candidates[0]?.length || 0;
 }
 
@@ -3369,11 +3773,22 @@ function initAnalysisPage() {
     viewerDataStatus: document.querySelector("#viewerDataStatus"),
     analysisTitle: document.querySelector("#analysisTitle"),
     analysisList: document.querySelector("#analysisList"),
-    analysisSample: document.querySelector("#analysisSample")
+    analysisSample: document.querySelector("#analysisSample"),
+    energyViewer: document.querySelector("#energyViewer"),
+    orbitalViewer: document.querySelector("#orbitalViewer"),
+    vibrationViewer: document.querySelector("#vibrationViewer"),
+    nmrViewer: document.querySelector("#nmrViewer"),
+    hessianViewer: document.querySelector("#hessianViewer"),
+    normalModeControls: document.querySelector("#normalModeControls"),
+    normalModeSelect: document.querySelector("#normalModeSelect"),
+    modeAmplitude: document.querySelector("#modeAmplitude"),
+    modeStatus: document.querySelector("#modeStatus")
   });
   setupMoleculeViewer();
   setupViewerControls();
   setupViewerImport();
+  renderAnalysisViewers();
+  syncNormalModeControls();
   document.querySelector("#downloadXyz")?.addEventListener("click", () => downloadFile("openqp_loaded_structure.xyz", `${xyzBody()}\n`, "chemical/x-xyz"));
   hydrateLocalRunnerTokenFromHash();
   if (hasLocalJob) {
@@ -3397,6 +3812,259 @@ function updateAnalysisSummary(parsed) {
     return li;
   }));
   sample.textContent = parsed.sample || parsed.status;
+}
+
+function renderAnalysisViewers() {
+  const analysis = normalizeAnalysisResult(state.analysisResult || createEmptyAnalysisResult());
+  renderEnergyViewer(analysis.energy);
+  renderOrbitalViewer(analysis.orbitals);
+  renderVibrationViewer(analysis.vibrations);
+  renderNmrViewer(analysis.nmr);
+  renderHessianViewer(analysis.hessian);
+}
+
+function renderEnergyViewer(energy) {
+  if (!dom.energyViewer) return;
+  const values = energy.values || [];
+  if (!values.length) {
+    renderEmptyViewer(dom.energyViewer, "No energy trace found. Load an OpenQP log, optimization output, IRC output, or JSON energy history.");
+    return;
+  }
+  dom.energyViewer.replaceChildren(
+    metricGrid([
+      ["Points", values.length],
+      ["First", formatScalar(values[0].value, 8)],
+      ["Last", formatScalar(values.at(-1).value, 8)]
+    ]),
+    lineChart(values.map((row) => row.value), { label: "Energy / PES trace", unit: values[0].unit || "hartree" }),
+    tableWrap(["#", "Label", "Energy", "Unit"], values.map((row, index) => [index + 1, row.label || `Point ${index + 1}`, formatScalar(row.value, 10), row.unit || "hartree"]))
+  );
+}
+
+function renderOrbitalViewer(orbitals) {
+  if (!dom.orbitalViewer) return;
+  const levels = (orbitals.levels || []).filter((level) => Number.isFinite(level.energy));
+  if (!levels.length) {
+    renderEmptyViewer(dom.orbitalViewer, "No orbital energies found. Load a Molden file or JSON orbital-energy array.");
+    return;
+  }
+  const occupied = levels.filter((level) => Number(level.occupation) > 0);
+  const homo = occupied.at(-1);
+  const lumo = levels.find((level) => Number(level.occupation) <= 0 && (!homo || level.index > homo.index));
+  const gap = homo && lumo ? (lumo.energy - homo.energy) * 27.211386245988 : null;
+  dom.orbitalViewer.replaceChildren(
+    metricGrid([
+      ["Levels", levels.length],
+      ["HOMO", homo ? `${formatScalar(homo.energy, 5)} Ha` : "n/a"],
+      ["Gap", Number.isFinite(gap) ? `${formatScalar(gap, 3)} eV` : "n/a"]
+    ]),
+    lineChart(levels.map((level) => level.energy), { label: "MO energies", unit: "hartree" }),
+    tableWrap(["#", "Spin", "Energy (Ha)", "Occ", "Sym"], levels.slice(0, 80).map((level) => [level.index, level.spin || "", formatScalar(level.energy, 7), formatScalar(level.occupation, 2), level.symmetry || ""]))
+  );
+}
+
+function renderVibrationViewer(vibrations) {
+  if (!dom.vibrationViewer) return;
+  const modes = vibrations.modes || [];
+  if (!modes.length) {
+    renderEmptyViewer(dom.vibrationViewer, "No vibrational modes found. Load an OpenQP .hess.json file for IR, Raman, and normal-mode animation.");
+    return;
+  }
+  dom.vibrationViewer.replaceChildren(
+    metricGrid([
+      ["Modes", modes.length],
+      ["Lowest", `${formatScalar(modes[0].frequency, 1)} cm-1`],
+      ["Highest", `${formatScalar(modes.at(-1).frequency, 1)} cm-1`]
+    ]),
+    spectrumChart(modes, "ir", vibrations.units?.ir || "IR"),
+    spectrumChart(modes, "raman", vibrations.units?.raman || "Raman"),
+    tableWrap(["Mode", "Freq (cm-1)", "IR", "Raman", "Motion"], modes.map((mode, index) => [
+      mode.index || index + 1,
+      formatScalar(mode.frequency, 2),
+      Number.isFinite(mode.ir) ? formatScalar(mode.ir, 3) : "",
+      Number.isFinite(mode.raman) ? formatScalar(mode.raman, 3) : "",
+      mode.vectors?.length ? "3D" : ""
+    ]))
+  );
+}
+
+function renderNmrViewer(nmr) {
+  if (!dom.nmrViewer) return;
+  const tensors = nmr.tensors || [];
+  if (!tensors.length) {
+    renderEmptyViewer(dom.nmrViewer, "No NMR shielding tensors found. Load NMR output or JSON with shielding data.");
+    return;
+  }
+  dom.nmrViewer.replaceChildren(
+    metricGrid([
+      ["Atoms", tensors.length],
+      ["First iso", formatScalar(tensors[0].iso, 3)],
+      ["Tensor rows", tensors.filter((row) => row.tensor).length]
+    ]),
+    tableWrap(["Atom", "Iso", "Anisotropy", "Tensor diag"], tensors.map((row) => [
+      `${row.atom}${row.index || ""}`,
+      Number.isFinite(row.iso) ? formatScalar(row.iso, 4) : "",
+      Number.isFinite(row.anisotropy) ? formatScalar(row.anisotropy, 4) : "",
+      row.tensor ? row.tensor.map((line, index) => formatScalar(line[index], 3)).join(", ") : ""
+    ]))
+  );
+}
+
+function renderHessianViewer(hessian) {
+  if (!dom.hessianViewer) return;
+  if (!hessian?.matrix) {
+    renderEmptyViewer(dom.hessianViewer, "No Hessian matrix found. Load an OpenQP Hessian JSON sidecar.");
+    return;
+  }
+  const dimension = hessian.dimension || hessian.matrix.length;
+  const preview = hessian.matrix.slice(0, 8).map((row) => row.slice(0, 8));
+  dom.hessianViewer.replaceChildren(
+    metricGrid([
+      ["Dimension", `${dimension} x ${dimension}`],
+      ["Max |H|", formatScalar(hessian.maxAbs, 5)],
+      ["Trace", formatScalar(hessian.trace, 5)]
+    ]),
+    tableWrap(["", ...preview.map((_, index) => index + 1)], preview.map((row, index) => [index + 1, ...row.map((value) => formatScalar(value, 4))])),
+    textBlock(JSON.stringify(hessian.metadata || {}, null, 2) || "{}")
+  );
+}
+
+function syncNormalModeControls() {
+  const modes = state.analysisResult?.vibrations?.modes || [];
+  if (!dom.normalModeControls || !dom.normalModeSelect) return;
+  const animatedModes = modes.filter((mode) => mode.vectors?.length);
+  dom.normalModeControls.hidden = animatedModes.length === 0;
+  dom.normalModeSelect.replaceChildren(
+    ...animatedModes.map((mode, index) => {
+      const option = document.createElement("option");
+      option.value = String(modes.indexOf(mode));
+      option.textContent = `Mode ${mode.index || index + 1} - ${formatScalar(mode.frequency, 1)} cm-1`;
+      return option;
+    })
+  );
+  if (animatedModes.length) {
+    dom.normalModeSelect.value = dom.normalModeSelect.options[0]?.value || "0";
+  }
+  viewerState.modePhase = 0;
+  updateModeStatus();
+  forceViewerRefresh();
+}
+
+function updateModeStatus() {
+  if (!dom.modeStatus) return;
+  const mode = activeNormalMode();
+  dom.modeStatus.textContent = mode
+    ? `Animating mode ${mode.index}: ${formatScalar(mode.frequency, 2)} cm-1.`
+    : "Load a Hessian sidecar to animate normal modes.";
+}
+
+function renderEmptyViewer(target, text) {
+  target.replaceChildren(element("p", { className: "viewer-empty", text }));
+}
+
+function metricGrid(items) {
+  const grid = element("div", { className: "analysis-metric-grid" });
+  grid.replaceChildren(...items.map(([label, value]) => {
+    const item = element("div", { className: "analysis-metric" });
+    item.replaceChildren(element("span", { text: label }), element("strong", { text: String(value) }));
+    return item;
+  }));
+  return grid;
+}
+
+function lineChart(values, options = {}) {
+  const finite = values.map(Number).filter(Number.isFinite);
+  if (!finite.length) return element("p", { className: "viewer-empty", text: "No numeric values to plot." });
+  const width = 640;
+  const height = 190;
+  const pad = 28;
+  const min = Math.min(...finite);
+  const max = Math.max(...finite);
+  const span = max - min || 1;
+  const points = finite.map((value, index) => {
+    const x = pad + (finite.length === 1 ? 0.5 : index / (finite.length - 1)) * (width - pad * 2);
+    const y = height - pad - ((value - min) / span) * (height - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const wrapper = element("div", { className: "mini-chart" });
+  wrapper.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(options.label || "Line chart")}">
+    <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#cbd9d6" />
+    <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#cbd9d6" />
+    <polyline fill="none" stroke="#155f8e" stroke-width="3" points="${points}" />
+    ${points.split(" ").map((point) => {
+      const [x, y] = point.split(",");
+      return `<circle cx="${x}" cy="${y}" r="3.5" fill="#008277" />`;
+    }).join("")}
+    <text x="${pad}" y="18" fill="#607080" font-size="13">${escapeHtml(options.unit || "")}</text>
+    <text x="${width - pad}" y="${height - 8}" fill="#607080" text-anchor="end" font-size="12">${finite.length} point${finite.length === 1 ? "" : "s"}</text>
+  </svg>`;
+  return wrapper;
+}
+
+function spectrumChart(modes, key, label) {
+  const values = modes.map((mode) => ({ x: Number(mode.frequency), y: Number(mode[key]) })).filter((row) => Number.isFinite(row.x) && Number.isFinite(row.y));
+  if (!values.length) return element("p", { className: "viewer-empty", text: `${key.toUpperCase()} intensities were not found.` });
+  const width = 720;
+  const height = 190;
+  const pad = 30;
+  const minX = Math.min(...values.map((row) => row.x));
+  const maxX = Math.max(...values.map((row) => row.x));
+  const maxY = Math.max(...values.map((row) => Math.abs(row.y)), 1);
+  const spanX = maxX - minX || 1;
+  const wrapper = element("div", { className: "spectrum-chart" });
+  wrapper.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(label)} spectrum">
+    <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#cbd9d6" />
+    ${values.map((row) => {
+      const x = pad + ((row.x - minX) / spanX) * (width - pad * 2);
+      const y = height - pad - (Math.abs(row.y) / maxY) * (height - pad * 2);
+      return `<line x1="${x.toFixed(1)}" y1="${height - pad}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${key === "raman" ? "#b8822f" : "#008277"}" stroke-width="4" />`;
+    }).join("")}
+    <text x="${pad}" y="18" fill="#607080" font-size="13">${escapeHtml(label)}</text>
+    <text x="${width - pad}" y="${height - 8}" fill="#607080" text-anchor="end" font-size="12">cm-1</text>
+  </svg>`;
+  return wrapper;
+}
+
+function tableWrap(headers, rows) {
+  const wrap = element("div", { className: "analysis-table-wrap" });
+  const table = element("table", { className: "analysis-table" });
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  headRow.replaceChildren(...headers.map((header) => element("th", { text: String(header) })));
+  thead.append(headRow);
+  const tbody = document.createElement("tbody");
+  tbody.replaceChildren(...rows.map((row) => {
+    const tr = document.createElement("tr");
+    tr.replaceChildren(...row.map((cell) => element("td", { text: String(cell ?? "") })));
+    return tr;
+  }));
+  table.replaceChildren(thead, tbody);
+  wrap.append(table);
+  return wrap;
+}
+
+function textBlock(text) {
+  const pre = document.createElement("pre");
+  pre.textContent = text;
+  return pre;
+}
+
+function element(tag, options = {}) {
+  const node = document.createElement(tag);
+  if (options.className) node.className = options.className;
+  if (options.text !== undefined) node.textContent = options.text;
+  return node;
+}
+
+function formatScalar(value, digits = 4) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "n/a";
+  if (Math.abs(number) >= 10000 || (Math.abs(number) > 0 && Math.abs(number) < 0.001)) return number.toExponential(Math.max(1, digits - 1));
+  return number.toFixed(digits).replace(/\.?0+$/, "");
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
 
 function hydrateLocalRunnerTokenFromHash() {
@@ -3447,6 +4115,7 @@ async function loadLocalRunnerJobFromUrl() {
       ...parsed.summary
     ];
     setStatusText(dom.viewerDataStatus, parsed.status, "ok");
+    applyParsedAnalysis(parsed);
     updateAnalysisSummary(parsed);
     updateMoleculeViewer();
   } catch (error) {

@@ -9,7 +9,7 @@
     />
     <title>OpenQP Local Analysis</title>
     <link rel="icon" href="/assets/openqp-grid.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/assets/styles.css?v=20260621-site-count" />
+    <link rel="stylesheet" href="/assets/styles.css?v=20260621-analysis-viewers" />
   </head>
   <body data-page="analysis">
     <header class="app-header">
@@ -25,6 +25,7 @@
         <a href="/workflow.html">Build input</a>
         <a href="#viewer">3D viewer</a>
         <a href="#data">Load data</a>
+        <a href="#viewers">Result viewers</a>
         <a href="https://www.openqp.org/">Main site</a>
       </nav>
     </header>
@@ -36,7 +37,8 @@
           <h1>Inspect OpenQP results locally.</h1>
           <p class="lead">
             Paste or choose output files from your computer. The browser extracts structures,
-            trajectories, basic energy metadata, and viewer-ready geometry without uploading data.
+            trajectories, orbital metadata, spectra, tensors, and viewer-ready geometry without
+            uploading data.
           </p>
         </div>
         <div class="lock-panel slim-lock">
@@ -82,6 +84,17 @@
               <button class="button secondary compact" id="resetView" type="button">Reset view</button>
               <button class="button secondary compact" id="downloadXyz" type="button">Download current .xyz</button>
             </div>
+            <div class="normal-mode-controls" id="normalModeControls" hidden>
+              <label>
+                Normal mode motion
+                <select id="normalModeSelect"></select>
+              </label>
+              <label>
+                Amplitude
+                <input id="modeAmplitude" type="range" min="0.05" max="0.9" step="0.05" value="0.35" />
+              </label>
+              <p class="microcopy" id="modeStatus">Load a Hessian sidecar to animate normal modes.</p>
+            </div>
           </div>
         </section>
 
@@ -114,6 +127,54 @@
           </div>
         </section>
       </section>
+
+      <section class="analysis-results" id="viewers">
+        <div class="section-title wide-title">
+          <p class="eyebrow">Result viewers</p>
+          <h2>Inspect spectra, orbitals, tensors, and paths.</h2>
+          <p>
+            These viewers read local OpenQP outputs, Hessian JSON sidecars, Molden files, cube
+            headers, and JSON result files in this browser.
+          </p>
+        </div>
+        <div class="analysis-card-grid">
+          <article class="panel analysis-card">
+            <p class="eyebrow">PES</p>
+            <h3>Energy path</h3>
+            <div id="energyViewer" class="analysis-viewer">
+              <p class="viewer-empty">Load an OpenQP log or JSON file with energies.</p>
+            </div>
+          </article>
+          <article class="panel analysis-card">
+            <p class="eyebrow">MO</p>
+            <h3>Orbital summary</h3>
+            <div id="orbitalViewer" class="analysis-viewer">
+              <p class="viewer-empty">Load a Molden file or JSON orbital data.</p>
+            </div>
+          </article>
+          <article class="panel analysis-card wide-card">
+            <p class="eyebrow">Vibrations</p>
+            <h3>IR, Raman, and normal modes</h3>
+            <div id="vibrationViewer" class="analysis-viewer">
+              <p class="viewer-empty">Load an OpenQP Hessian JSON sidecar or frequency output.</p>
+            </div>
+          </article>
+          <article class="panel analysis-card">
+            <p class="eyebrow">NMR</p>
+            <h3>Shielding tensors</h3>
+            <div id="nmrViewer" class="analysis-viewer">
+              <p class="viewer-empty">Load NMR output or JSON shielding data.</p>
+            </div>
+          </article>
+          <article class="panel analysis-card">
+            <p class="eyebrow">Hessian</p>
+            <h3>Matrix and derivatives</h3>
+            <div id="hessianViewer" class="analysis-viewer">
+              <p class="viewer-empty">Load a Hessian JSON sidecar.</p>
+            </div>
+          </article>
+        </div>
+      </section>
     </main>
 
     <footer>
@@ -122,6 +183,6 @@
       <a href="/workflow.html">Build input</a>
       <a href="https://github.com/Open-Quantum-Platform/openqp/wiki">Documentation</a>
     </footer>
-    <script type="module" src="/assets/app.js?v=20260621-analysis-job"></script>
+    <script type="module" src="/assets/app.js?v=20260621-analysis-viewers"></script>
   </body>
 </html>

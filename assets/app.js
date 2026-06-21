@@ -1048,7 +1048,8 @@ const functionalOptions = [
 
 const state = {
   workflow: workflows[0],
-  analysisXYZ: molecules.caffeine.xyz
+  analysisXYZ: molecules.caffeine.xyz,
+  analysisJobMode: false
 };
 
 const viewerState = {
@@ -1693,6 +1694,7 @@ function normalizeXYZText(text) {
 
 function currentXYZText() {
   if (dom.xyzInput) return normalizeXYZText(dom.xyzInput.value) || molecules[dom.moleculeSelect?.value || "water"].xyz;
+  if (state.analysisJobMode) return normalizeXYZText(state.analysisXYZ);
   return normalizeXYZText(state.analysisXYZ) || molecules.caffeine.xyz;
 }
 
@@ -3352,6 +3354,11 @@ function setStatusText(element, text, stateName) {
 }
 
 function initAnalysisPage() {
+  const params = new URLSearchParams(window.location.search);
+  const hasLocalJob = Boolean(params.get("job"));
+  state.analysisJobMode = hasLocalJob;
+  if (hasLocalJob) state.analysisXYZ = "0\nLoading completed local run";
+
   Object.assign(dom, {
     moleculeLabel: document.querySelector("#moleculeLabel"),
     moleculeCanvas: document.querySelector("#moleculeCanvas"),
@@ -3368,9 +3375,14 @@ function initAnalysisPage() {
   setupViewerControls();
   setupViewerImport();
   document.querySelector("#downloadXyz")?.addEventListener("click", () => downloadFile("openqp_loaded_structure.xyz", `${xyzBody()}\n`, "chemical/x-xyz"));
-  updateMoleculeViewer();
   hydrateLocalRunnerTokenFromHash();
-  loadLocalRunnerJobFromUrl();
+  if (hasLocalJob) {
+    setStatusText(dom.viewerDataStatus, "Loading completed local run...", "running");
+    updateMoleculeViewer();
+    loadLocalRunnerJobFromUrl();
+  } else {
+    updateMoleculeViewer();
+  }
 }
 
 function updateAnalysisSummary(parsed) {
@@ -3378,7 +3390,7 @@ function updateAnalysisSummary(parsed) {
   const list = document.querySelector("#analysisList");
   const sample = document.querySelector("#analysisSample");
   if (!title || !list || !sample) return;
-  title.textContent = `${parsed.type} loaded`;
+  title.textContent = parsed.heading || `${parsed.type} loaded`;
   list.replaceChildren(...parsed.summary.map((item) => {
     const li = document.createElement("li");
     li.textContent = item;
@@ -3438,7 +3450,22 @@ async function loadLocalRunnerJobFromUrl() {
     updateAnalysisSummary(parsed);
     updateMoleculeViewer();
   } catch (error) {
-    setStatusText(dom.viewerDataStatus, error.message || "Could not load the completed local run.", "error");
+    const message = error.message || "Could not load the completed local run.";
+    state.analysisXYZ = "0\nLocal run geometry unavailable";
+    lastMoleculeSignature = "";
+    setStatusText(dom.viewerDataStatus, message, "error");
+    updateAnalysisSummary({
+      heading: "Local run could not be loaded",
+      type: "Local run",
+      summary: [
+        "Could not load the completed job geometry.",
+        "Check that the local runner is still open and the pairing code is valid.",
+        "If the runner was started before the latest update, restart it from setup."
+      ],
+      sample: message,
+      status: message
+    });
+    updateMoleculeViewer();
   }
 }
 

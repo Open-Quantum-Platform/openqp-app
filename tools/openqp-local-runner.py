@@ -27,10 +27,10 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
-VERSION = "0.1.4"
+VERSION = "0.1.5"
 DEFAULT_PORT = 17651
 ARTIFACT_TEXT_LIMIT = 750_000
-RESULT_ARTIFACT_SUFFIXES = (".hess.json", ".json", ".molden", ".mol", ".cube", ".cub", ".xyz")
+RESULT_ARTIFACT_SUFFIXES = (".hess.json", ".json", ".log", ".molden", ".mol", ".cube", ".cub", ".xyz")
 DEFAULT_ORIGINS = (
     "https://app.openqp.org",
     "http://127.0.0.1:17651",
@@ -90,6 +90,8 @@ def artifact_kind(path: Path) -> str:
         return "hessian-json"
     if name.endswith(".json"):
         return "json"
+    if name.endswith(".log"):
+        return "log"
     if name.endswith((".molden", ".mol")):
         return "molden"
     if name.endswith((".cube", ".cub")):
@@ -104,9 +106,10 @@ def artifact_rank(path: Path) -> int:
     return {
         "hessian-json": 0,
         "json": 1,
-        "molden": 2,
-        "cube": 3,
-        "xyz": 4,
+        "log": 2,
+        "molden": 3,
+        "cube": 4,
+        "xyz": 5,
     }.get(kind, 9)
 
 
@@ -185,7 +188,7 @@ class RunnerState:
             input_path = job_dir / f"{job_name}.inp"
             xyz_path = job_dir / f"{job_name}.xyz"
             log_path = job_dir / f"{job_name}.log"
-            stdout_path = job_dir / f"{job_name}.out"
+            stdout_path = job_dir / f"{job_name}.stdout.txt"
             input_path.write_text(input_text, encoding="utf-8")
             xyz_path.write_text(xyz_text if xyz_text.endswith("\n") else f"{xyz_text}\n", encoding="utf-8")
             job = {

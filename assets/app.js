@@ -4,6 +4,7 @@ const BOHR_TO_ANGSTROM = 0.529177210903;
 const LOCAL_RUNNER_URL = "http://127.0.0.1:17651";
 const LOCAL_RUNNER_TOKEN_KEY = "openqpLocalRunnerToken";
 const LOCAL_RUNNER_POLL_MS = 1200;
+const MIN_LOCAL_RUNNER_VERSION = "0.1.4";
 
 const molecules = {
   water: {
@@ -2556,7 +2557,8 @@ function localRunFileNames() {
     job,
     input: `${job}.inp`,
     xyz: `${job}.xyz`,
-    output: `${job}.out`,
+    output: `${job}.log`,
+    stdout: `${job}.stdout.txt`,
     resultDir: "openqp-results"
   };
 }
@@ -2570,24 +2572,27 @@ function localRunCommand(os = selectedLocalRunOs()) {
   if (os === "macos") {
     return [
       `Unzip ${localRunPackageName()} and double-click ${localRunScriptName(os)}.`,
-      `Output will be written to ${files.resultDir}/${files.output}.`
+      `Log will be written to ${files.resultDir}/${files.output}.`
     ].join("\n");
   }
   if (os === "powershell") {
     return [
       `New-Item -ItemType Directory -Force -Path ".\\${files.resultDir}" | Out-Null`,
-      `openqp ".\\${files.input}" *> ".\\${files.resultDir}\\${files.output}"`
+      `openqp ".\\${files.input}" *> ".\\${files.resultDir}\\${files.stdout}"`,
+      `if (Test-Path ".\\${files.output}") { Copy-Item ".\\${files.output}" ".\\${files.resultDir}\\${files.output}" -Force } else { Copy-Item ".\\${files.resultDir}\\${files.stdout}" ".\\${files.resultDir}\\${files.output}" -Force }`
     ].join("\n");
   }
   if (os === "cmd") {
     return [
       `if not exist ${files.resultDir} mkdir ${files.resultDir}`,
-      `openqp "${files.input}" > "${files.resultDir}\\${files.output}" 2>&1`
+      `openqp "${files.input}" > "${files.resultDir}\\${files.stdout}" 2>&1`,
+      `if exist "${files.output}" (copy /Y "${files.output}" "${files.resultDir}\\${files.output}" >nul) else (copy /Y "${files.resultDir}\\${files.stdout}" "${files.resultDir}\\${files.output}" >nul)`
     ].join("\r\n");
   }
   return [
     `mkdir -p ${shellQuote(files.resultDir)}`,
-    `openqp ${shellQuote(`./${files.input}`)} > ${shellQuote(`${files.resultDir}/${files.output}`)} 2>&1`
+    `openqp ${shellQuote(`./${files.input}`)} > ${shellQuote(`${files.resultDir}/${files.stdout}`)} 2>&1`,
+    `cp -f ${shellQuote(files.output)} ${shellQuote(`${files.resultDir}/${files.output}`)} 2>/dev/null || cp -f ${shellQuote(`${files.resultDir}/${files.stdout}`)} ${shellQuote(`${files.resultDir}/${files.output}`)}`
   ].join("\n");
 }
 
@@ -2616,11 +2621,19 @@ function localRunScript(os = selectedLocalRunOs()) {
       `test -f ${shellQuote(files.input)} || { echo "Missing ${files.input} in this folder." >&2; exit 1; }`,
       `test -f ${shellQuote(files.xyz)} || { echo "Missing ${files.xyz} in this folder." >&2; exit 1; }`,
       `mkdir -p ${shellQuote(files.resultDir)}`,
-      `openqp ${shellQuote(`./${files.input}`)} > ${shellQuote(`${files.resultDir}/${files.output}`)} 2>&1`,
-      `echo "OpenQP finished. Output: ${files.resultDir}/${files.output}"`,
+      "set +e",
+      `openqp ${shellQuote(`./${files.input}`)} > ${shellQuote(`${files.resultDir}/${files.stdout}`)} 2>&1`,
+      "run_status=$?",
+      "set -e",
+      `cp -f ${shellQuote(files.output)} ${shellQuote(`${files.resultDir}/${files.output}`)} 2>/dev/null || cp -f ${shellQuote(`${files.resultDir}/${files.stdout}`)} ${shellQuote(`${files.resultDir}/${files.output}`)}`,
       "echo \"\"",
-      "echo \"Press Return to close this window.\"",
-      "read -r _ || true"
+      `echo "OpenQP finished. Log: ${files.resultDir}/${files.output}"`,
+      "if [ \"$run_status\" -eq 0 ]; then",
+      "  echo \"\"",
+      "  echo \"Press Return to close this window.\"",
+      "  read -r _ || true",
+      "fi",
+      "exit \"$run_status\""
     ].join("\n") + "\n";
   }
   if (os === "powershell") {
@@ -2633,8 +2646,11 @@ function localRunScript(os = selectedLocalRunOs()) {
       `if (-not (Test-Path ".\\${files.input}")) { Write-Error "Missing ${files.input} in this folder." }`,
       `if (-not (Test-Path ".\\${files.xyz}")) { Write-Error "Missing ${files.xyz} in this folder." }`,
       `New-Item -ItemType Directory -Force -Path ".\\${files.resultDir}" | Out-Null`,
-      `& $openqp.Source ".\\${files.input}" *> ".\\${files.resultDir}\\${files.output}"`,
-      `Write-Host "OpenQP finished. Output: .\\${files.resultDir}\\${files.output}"`
+      `& $openqp.Source ".\\${files.input}" *> ".\\${files.resultDir}\\${files.stdout}"`,
+      "$runStatus = $LASTEXITCODE",
+      `if (Test-Path ".\\${files.output}") { Copy-Item ".\\${files.output}" ".\\${files.resultDir}\\${files.output}" -Force } else { Copy-Item ".\\${files.resultDir}\\${files.stdout}" ".\\${files.resultDir}\\${files.output}" -Force }`,
+      `Write-Host "OpenQP finished. Log: .\\${files.resultDir}\\${files.output}"`,
+      "exit $runStatus"
     ].join("\r\n") + "\r\n";
   }
   if (os === "cmd") {
@@ -2655,12 +2671,14 @@ function localRunScript(os = selectedLocalRunOs()) {
       "  exit /b 1",
       ")",
       `if not exist ${files.resultDir} mkdir ${files.resultDir}`,
-      `openqp "${files.input}" > "${files.resultDir}\\${files.output}" 2>&1`,
-      "if errorlevel 1 (",
+      `openqp "${files.input}" > "${files.resultDir}\\${files.stdout}" 2>&1`,
+      "set run_status=%errorlevel%",
+      `if exist "${files.output}" (copy /Y "${files.output}" "${files.resultDir}\\${files.output}" >nul) else (copy /Y "${files.resultDir}\\${files.stdout}" "${files.resultDir}\\${files.output}" >nul)`,
+      "if not \"%run_status%\"==\"0\" (",
       `  echo OpenQP exited with an error. See ${files.resultDir}\\${files.output}`,
-      "  exit /b 1",
+      "  exit /b %run_status%",
       ")",
-      `echo OpenQP finished. Output: ${files.resultDir}\\${files.output}`
+      `echo OpenQP finished. Log: ${files.resultDir}\\${files.output}`
     ].join("\r\n") + "\r\n";
   }
   return [
@@ -2677,8 +2695,13 @@ function localRunScript(os = selectedLocalRunOs()) {
     `test -f ${shellQuote(files.input)} || { echo "Missing ${files.input} in this folder." >&2; exit 1; }`,
     `test -f ${shellQuote(files.xyz)} || { echo "Missing ${files.xyz} in this folder." >&2; exit 1; }`,
     `mkdir -p ${shellQuote(files.resultDir)}`,
-    `openqp ${shellQuote(`./${files.input}`)} > ${shellQuote(`${files.resultDir}/${files.output}`)} 2>&1`,
-    `echo "OpenQP finished. Output: ${files.resultDir}/${files.output}"`
+    "set +e",
+    `openqp ${shellQuote(`./${files.input}`)} > ${shellQuote(`${files.resultDir}/${files.stdout}`)} 2>&1`,
+    "run_status=$?",
+    "set -e",
+    `cp -f ${shellQuote(files.output)} ${shellQuote(`${files.resultDir}/${files.output}`)} 2>/dev/null || cp -f ${shellQuote(`${files.resultDir}/${files.stdout}`)} ${shellQuote(`${files.resultDir}/${files.output}`)}`,
+    `echo "OpenQP finished. Log: ${files.resultDir}/${files.output}"`,
+    "exit \"$run_status\""
   ].join("\n") + "\n";
 }
 
@@ -2738,7 +2761,8 @@ function localRunPackageFiles() {
       ? `On macOS, unzip this package and double-click ${scriptName}.`
       : `Keep these files in one folder and run ${scriptName} from that folder.`,
     "The launcher expects the openqp command to be installed and available on PATH.",
-    `Output will be written to ${files.resultDir}/${files.output}.`,
+    `OpenQP log will be written to ${files.resultDir}/${files.output}.`,
+    `OpenQP console text will be written to ${files.resultDir}/${files.stdout}.`,
     "",
     "Nothing is uploaded by this local run path."
   ];
@@ -3006,10 +3030,51 @@ function localRunnerConnectionMessage(error) {
   return message || "Could not connect to local runner.";
 }
 
+function compareVersion(value, minimum) {
+  const parse = (version) => String(version || "").split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const currentParts = parse(value);
+  const minimumParts = parse(minimum);
+  const length = Math.max(currentParts.length, minimumParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const current = currentParts[index] || 0;
+    const expected = minimumParts[index] || 0;
+    if (current > expected) return 1;
+    if (current < expected) return -1;
+  }
+  return 0;
+}
+
+function isLocalRunnerVersionCurrent(version) {
+  return compareVersion(version, MIN_LOCAL_RUNNER_VERSION) >= 0;
+}
+
+function outdatedLocalRunnerMessage(version) {
+  const current = version ? `version ${version}` : "an older version";
+  return `The local runner is ${current}. Stop that Terminal window, download the updated runner from setup, then start it again.`;
+}
+
 async function checkLocalRunner({ quiet = false } = {}) {
   try {
     const health = await localRunnerRequest("/health");
     const hasOpenQp = Boolean(health.openqp?.available);
+    const runnerCurrent = isLocalRunnerVersionCurrent(health.version);
+    if (!runnerCurrent) {
+      const message = outdatedLocalRunnerMessage(health.version);
+      health.needsUpdate = true;
+      setLocalRunnerReady(false);
+      setLocalRunnerStatus(message, "error");
+      setLocalSetupDetected(message, "error");
+      if (!quiet) {
+        setLocalRunnerLog([
+          `${health.runner || "OpenQP Local Runner"} ${health.version || ""}`.trim(),
+          message,
+          "",
+          "Download runner command:",
+          "python3 ~/Downloads/openqp-local-runner.py"
+        ].join("\n"));
+      }
+      return health;
+    }
     let paired = false;
     let pairMessage = "";
     if (hasOpenQp && localRunnerToken()) {
@@ -3093,6 +3158,13 @@ async function startLocalRunnerJob() {
 
   try {
     const health = await checkLocalRunner({ quiet: true });
+    if (health.needsUpdate || !isLocalRunnerVersionCurrent(health.version)) {
+      const message = outdatedLocalRunnerMessage(health.version);
+      setLocalRunnerBusy(false);
+      setLocalRunnerStatus(message, "error");
+      openLocalSetupDialog(message, "error");
+      return;
+    }
     if (!health.openqp?.available) {
       const message = "OpenQP is not installed yet. Run the OpenQP installer, restart the local runner, then try again.";
       setLocalRunnerBusy(false);
@@ -3158,8 +3230,8 @@ function updateLocalRunnerJob(job) {
     queued: "Local OpenQP job is queued.",
     running: "Local OpenQP is running.",
     canceling: "Stopping local OpenQP run...",
-    complete: `Local OpenQP finished. Log: ${job.output || ""}`,
-    failed: `Local OpenQP failed. Log: ${job.output || job.stdout || ""}`,
+    complete: `Local OpenQP finished. Log: ${preferredLocalRunnerLogName(job)}`,
+    failed: `Local OpenQP failed. Log: ${preferredLocalRunnerLogName(job)}`,
     canceled: "Local OpenQP run was stopped.",
     timed_out: "Local OpenQP run timed out."
   }[status] || `Local OpenQP status: ${status}.`;
@@ -4140,55 +4212,45 @@ async function loadLocalRunnerJobFromUrl() {
   setStatusText(dom.viewerDataStatus, "Loading completed local run...", "running");
   try {
     const job = await localRunnerRequest(`/jobs/${encodeURIComponent(jobId)}`);
-    const outputName = fileNameFromPath(job.output) || `${job.name || "openqp_job"}.out`;
+    const outputName = preferredLocalRunnerLogName(job);
+    const stdoutName = preferredLocalRunnerStdoutName(job);
     const xyzName = fileNameFromPath(job.xyz) || `${job.name || "openqp_job"}.xyz`;
     const logText = job.log || "";
     const candidates = [
+      { name: outputName, text: logText, label: outputName },
       ...localRunnerArtifacts(job).map((artifact) => ({
         name: artifact.name || fileNameFromPath(artifact.path) || "openqp-result.json",
         text: artifact.text || "",
         label: artifact.name || fileNameFromPath(artifact.path) || "result artifact"
       })),
-      { name: outputName, text: logText, label: outputName }
+      { name: stdoutName, text: job.stdoutText || "", label: stdoutName }
     ].filter((candidate) => candidate.text.trim());
-    let resultParsed = null;
-    let resultText = "";
-    let resultLabel = "";
+    const parsedCandidates = [];
     for (const candidate of candidates) {
       try {
         const candidateParsed = parseViewerData(candidate.text, candidate.name);
-        if (!resultParsed || parsedHasMoleculeGeometry(candidateParsed) || hasAnalysisData(candidateParsed.analysis)) {
-          resultParsed = candidateParsed;
-          resultText = candidate.text;
-          resultLabel = candidate.label;
-        }
-        if (parsedHasMoleculeGeometry(candidateParsed) && hasAnalysisData(candidateParsed.analysis)) break;
+        parsedCandidates.push({ parsed: candidateParsed, text: candidate.text, label: candidate.label });
       } catch (error) {
         // Keep trying lower-priority local-run artifacts.
       }
     }
 
-    let geometryParsed = parsedHasMoleculeGeometry(resultParsed) ? resultParsed : null;
+    let geometryParsed = parsedCandidates.find((candidate) => parsedHasMoleculeGeometry(candidate.parsed))?.parsed || null;
     if (!geometryParsed && job.xyzText) {
       geometryParsed = parseViewerData(job.xyzText, xyzName);
     }
-    if (!resultParsed && geometryParsed) {
-      resultParsed = geometryParsed;
-      resultText = job.xyzText || "";
-      resultLabel = xyzName;
-    }
-    if (!resultParsed) throw new Error("The completed local run did not include readable log, JSON, or XYZ data.");
+    const analysis = mergeAnalysis(...parsedCandidates.map((candidate) => candidate.parsed.analysis), geometryParsed?.analysis);
+    const primaryParsed = parsedCandidates[0]?.parsed || geometryParsed;
+    if (!primaryParsed && !hasAnalysisData(analysis)) throw new Error("The completed local run did not include readable log, JSON, or XYZ data.");
 
-    const parsed = geometryParsed && resultParsed !== geometryParsed
-      ? mergeLocalRunnerResultWithGeometry(resultParsed, geometryParsed, resultLabel)
-      : resultParsed;
-    if (dom.viewerDataInput) dom.viewerDataInput.value = resultText || logText || job.xyzText || "";
-    state.analysisXYZ = parsed.xyz;
+    const parsed = mergeLocalRunnerParsedResults(primaryParsed, geometryParsed, analysis, parsedCandidates.map((candidate) => candidate.label));
+    if (dom.viewerDataInput) dom.viewerDataInput.value = parsedCandidates[0]?.text || logText || job.xyzText || "";
+    state.analysisXYZ = parsed.xyz || "0\nLocal run result without geometry";
     lastMoleculeSignature = "";
     parsed.status = `Loaded local run ${job.name || job.id}.`;
     parsed.summary = [
       `Run status: ${job.status || "unknown"}`,
-      job.output ? `Log: ${job.output}` : `Job: ${job.id}`,
+      `Log: ${outputName}`,
       ...parsed.summary
     ];
     setStatusText(dom.viewerDataStatus, parsed.status, "ok");
@@ -4228,6 +4290,7 @@ function localRunnerArtifactRank(artifact) {
   if (name.endsWith(".molden") || name.endsWith(".mol")) return 2;
   if (name.endsWith(".cube") || name.endsWith(".cub")) return 3;
   if (name.endsWith(".xyz")) return 4;
+  if (name.endsWith(".log")) return 5;
   return 9;
 }
 
@@ -4235,30 +4298,56 @@ function parsedHasMoleculeGeometry(parsed) {
   return Number(parsed?.atoms || 0) > 0 && parseXYZ(parsed.xyz || "").length > 0;
 }
 
-function mergeLocalRunnerResultWithGeometry(resultParsed, geometryParsed, resultLabel) {
+function mergeLocalRunnerParsedResults(primaryParsed, geometryParsed, analysis, labels = []) {
+  const base = geometryParsed || primaryParsed || {
+    type: "Local run",
+    xyz: "0\nLocal run result without geometry",
+    status: "Loaded local run.",
+    atoms: 0,
+    frames: 0,
+    summary: [],
+    sample: ""
+  };
   const summary = [];
   const addSummary = (item) => {
     if (item && !summary.includes(item)) summary.push(item);
   };
-  (resultParsed.summary || []).forEach(addSummary);
-  addSummary(`Results loaded from ${resultLabel || "local run output"}.`);
-  addSummary("Molecule geometry loaded from the local-run XYZ file.");
-  (geometryParsed.summary || []).forEach(addSummary);
+  (primaryParsed?.summary || []).forEach(addSummary);
+  if (geometryParsed && geometryParsed !== primaryParsed) addSummary("Molecule geometry loaded from the local-run XYZ/log data.");
+  (geometryParsed?.summary || []).forEach(addSummary);
+  labels.filter(Boolean).forEach((label) => addSummary(`Loaded ${label}.`));
   return {
-    ...geometryParsed,
-    type: resultParsed.type || geometryParsed.type,
-    heading: resultParsed.heading || `${resultParsed.type || "Local run"} loaded`,
-    orbitals: resultParsed.orbitals || geometryParsed.orbitals,
-    energies: resultParsed.energies || geometryParsed.energies,
+    ...base,
+    type: primaryParsed?.type || base.type,
+    heading: primaryParsed?.heading || base.heading,
+    orbitals: primaryParsed?.orbitals || base.orbitals,
+    energies: primaryParsed?.energies || base.energies,
     summary,
     sample: [
-      resultParsed.sample,
-      "",
-      "Geometry was loaded from the local-run XYZ file so the molecule viewer can render the completed job.",
-      geometryParsed.sample
-    ].filter(Boolean).join("\n"),
-    analysis: mergeAnalysis(resultParsed.analysis, geometryParsed.analysis)
+      primaryParsed?.sample,
+      geometryParsed && geometryParsed !== primaryParsed ? "Geometry was loaded from the local-run molecule data." : "",
+      geometryParsed && geometryParsed !== primaryParsed ? geometryParsed.sample : ""
+    ].filter(Boolean).join("\n\n"),
+    analysis
   };
+}
+
+function preferredLocalRunnerLogName(job) {
+  const outputName = fileNameFromPath(job?.output);
+  if (outputName && !/\.out$/i.test(outputName)) return outputName;
+  return `${safeLocalJobBaseName(job)}.log`;
+}
+
+function preferredLocalRunnerStdoutName(job) {
+  const stdoutName = fileNameFromPath(job?.stdout);
+  if (stdoutName) return stdoutName.replace(/\.out$/i, ".stdout.txt");
+  return `${safeLocalJobBaseName(job)}.stdout.txt`;
+}
+
+function safeLocalJobBaseName(job) {
+  return String(job?.name || fileNameFromPath(job?.input).replace(/\.[^.]+$/, "") || "openqp_job")
+    .replace(/[^a-zA-Z0-9_.-]/g, "_")
+    .replace(/^[._-]+|[._-]+$/g, "") || "openqp_job";
 }
 
 function fileNameFromPath(path) {

@@ -27,7 +27,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 DEFAULT_PORT = 17651
 ARTIFACT_TEXT_LIMIT = 750_000
 RESULT_ARTIFACT_SUFFIXES = (".hess.json", ".json", ".log", ".molden", ".mol", ".cube", ".cub", ".xyz")
@@ -160,6 +160,7 @@ class RunnerState:
         input_text = str(payload.get("input") or "")
         xyz_text = str(payload.get("xyz") or "")
         job_name = safe_job_name(str(payload.get("jobName") or "openqp_job"))
+        workflow = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(payload.get("workflow") or "").strip())[:64].strip("._-")
         timeout = int(payload.get("timeoutSeconds") or self.timeout_seconds)
         timeout = max(1, min(timeout, self.timeout_seconds))
 
@@ -194,6 +195,7 @@ class RunnerState:
             job = {
                 "id": job_id,
                 "name": job_name,
+                "workflow": workflow,
                 "status": "queued",
                 "createdAt": time.time(),
                 "startedAt": None,

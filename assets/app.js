@@ -4,7 +4,7 @@ const BOHR_TO_ANGSTROM = 0.529177210903;
 const LOCAL_RUNNER_URL = "http://127.0.0.1:17651";
 const LOCAL_RUNNER_TOKEN_KEY = "openqpLocalRunnerToken";
 const LOCAL_RUNNER_POLL_MS = 1200;
-const MIN_LOCAL_RUNNER_VERSION = "0.1.4";
+const MIN_LOCAL_RUNNER_VERSION = "0.1.6";
 
 const molecules = {
   water: {
@@ -1962,6 +1962,14 @@ function setupViewerImport() {
   });
   document.querySelector("#clearViewerData")?.addEventListener("click", () => {
     if (dom.viewerDataInput) dom.viewerDataInput.value = "";
+    resetAnalysisForNewLoad("0\nNo local analysis loaded");
+    updateAnalysisSummary({
+      heading: "No local analysis loaded",
+      type: "Local analysis",
+      summary: ["Paste or choose a result file to inspect it."],
+      sample: "",
+      status: "Paste area cleared."
+    });
     setStatusText(dom.viewerDataStatus, "Paste area cleared.", "");
   });
 }
@@ -3325,6 +3333,7 @@ async function loadViewerDataText(rawText, fileName) {
     return;
   }
 
+  resetAnalysisForNewLoad("0\nLoading new local data");
   try {
     const parsed = parseViewerData(text, fileName);
     if (dom.xyzInput) {
@@ -3358,6 +3367,16 @@ function applyParsedAnalysis(parsed) {
   state.analysisResult = normalizeAnalysisResult(parsed.analysis || createEmptyAnalysisResult());
   syncNormalModeControls();
   renderAnalysisViewers();
+}
+
+function resetAnalysisForNewLoad(xyz = "0\nLoading local result") {
+  state.analysisResult = createEmptyAnalysisResult();
+  state.analysisXYZ = xyz;
+  viewerState.modePhase = 0;
+  lastMoleculeSignature = "";
+  renderAnalysisViewers();
+  syncNormalModeControls();
+  updateMoleculeViewer();
 }
 
 function normalizeAnalysisResult(analysis) {
@@ -3423,17 +3442,43 @@ function extractTextAnalysis(text) {
 
 function extractEnergyValues(text) {
   const values = [];
-  const patterns = [
-    /(?:Final\s+(?:SCF\s+)?Energy|Total\s+Energy|SCF\s+Energy|PyOQP state\s+\d+)\s*[:=]?\s*([-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?)/gi,
-    /^\s*(?:step\s+)?(\d+)\s+([-+]?\d+\.\d+(?:[Ee][-+]?\d+)?)\s+(?:[-+]?\d|\s*$)/gim
-  ];
-  for (const pattern of patterns) {
-    let match;
-    while ((match = pattern.exec(text))) {
-      const value = Number(match[2] || match[1]);
+  let tableMode = "";
+  for (const line of text.split(/\r?\n/)) {
+    const finalMatch = line.match(/^\s*Final\s+(?:[A-Z]+[-\w]*\s+)?energy\s+(?:is\s+)?([-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?)/i);
+    const totalMatch = line.match(/^\s*TOTAL\s+energy\s*=\s*([-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?)/i)
+      || line.match(/^\s*Total\s+Energy\s*[:=]\s*([-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?)/i);
+    const scfMatch = line.match(/^\s*SCF\s+Energy\s*[:=]\s*([-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?)/i);
+    const stateMatch = line.match(/^\s*PyOQP state\s+(\d+)\s*[:=]\s*([-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?)/i);
+    const labeledValue = finalMatch
+      ? ["Final energy", finalMatch[1]]
+      : totalMatch
+        ? ["Total energy", totalMatch[1]]
+        : scfMatch
+          ? ["SCF energy", scfMatch[1]]
+          : stateMatch
+            ? [`State ${stateMatch[1]}`, stateMatch[2]]
+            : null;
+    if (labeledValue) {
+      const value = Number(labeledValue[1]);
+      if (Number.isFinite(value) && Math.abs(value) >= 1e-12) {
+        values.push({ index: values.length + 1, label: labeledValue[0], value, unit: "hartree" });
+      }
+    }
+
+    if (/^\s*(?:Iter|Macro|Step)\s+Energy\b/i.test(line)) {
+      tableMode = line.trim().split(/\s+/)[0].replace(/^./, (char) => char.toUpperCase());
+      continue;
+    }
+    if (!tableMode) continue;
+    if (!line.trim() || /SCF convergence|Molecular Orbitals|Energy components|Step\s+CPU|Total\s+CPU/i.test(line)) {
+      tableMode = "";
+      continue;
+    }
+    const tableMatch = line.match(/^\s*(\d+)\s+([-+]?\d+\.\d+(?:[Ee][-+]?\d+)?)(?=\s)/);
+    if (tableMatch) {
+      const value = Number(tableMatch[2]);
       if (!Number.isFinite(value) || Math.abs(value) < 1e-12) continue;
-      const index = values.length + 1;
-      values.push({ index, label: `E${index}`, value, unit: "hartree" });
+      values.push({ index: values.length + 1, label: `${tableMode} ${tableMatch[1]}`, value, unit: "hartree" });
     }
   }
   return values;
@@ -4209,24 +4254,26 @@ async function loadLocalRunnerJobFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const jobId = params.get("job");
   if (!jobId) return;
+  resetAnalysisForNewLoad("0\nLoading completed local run");
   setStatusText(dom.viewerDataStatus, "Loading completed local run...", "running");
   try {
     const job = await localRunnerRequest(`/jobs/${encodeURIComponent(jobId)}`);
+    const workflowId = localRunnerWorkflowId(job);
     const outputName = preferredLocalRunnerLogName(job);
     const stdoutName = preferredLocalRunnerStdoutName(job);
     const xyzName = fileNameFromPath(job.xyz) || `${job.name || "openqp_job"}.xyz`;
     const logText = job.log || "";
-    const candidates = [
+    const artifacts = localRunnerArtifacts(job).filter((artifact) => localRunnerArtifactAllowedForWorkflow(artifact, workflowId));
+    const primaryCandidates = [
       { name: outputName, text: logText, label: outputName },
-      ...localRunnerArtifacts(job).map((artifact) => ({
+      ...artifacts.map((artifact) => ({
         name: artifact.name || fileNameFromPath(artifact.path) || "openqp-result.json",
         text: artifact.text || "",
         label: artifact.name || fileNameFromPath(artifact.path) || "result artifact"
-      })),
-      { name: stdoutName, text: job.stdoutText || "", label: stdoutName }
+      }))
     ].filter((candidate) => candidate.text.trim());
     const parsedCandidates = [];
-    for (const candidate of candidates) {
+    for (const candidate of primaryCandidates) {
       try {
         const candidateParsed = parseViewerData(candidate.text, candidate.name);
         parsedCandidates.push({ parsed: candidateParsed, text: candidate.text, label: candidate.label });
@@ -4234,12 +4281,23 @@ async function loadLocalRunnerJobFromUrl() {
         // Keep trying lower-priority local-run artifacts.
       }
     }
+    if (!parsedCandidates.length && (job.stdoutText || "").trim()) {
+      try {
+        const candidateParsed = parseViewerData(job.stdoutText, stdoutName);
+        parsedCandidates.push({ parsed: candidateParsed, text: job.stdoutText, label: stdoutName });
+      } catch (error) {
+        // Stdout is a fallback for failed runs and older runner behavior only.
+      }
+    }
 
     let geometryParsed = parsedCandidates.find((candidate) => parsedHasMoleculeGeometry(candidate.parsed))?.parsed || null;
     if (!geometryParsed && job.xyzText) {
       geometryParsed = parseViewerData(job.xyzText, xyzName);
     }
-    const analysis = mergeAnalysis(...parsedCandidates.map((candidate) => candidate.parsed.analysis), geometryParsed?.analysis);
+    const analysis = filterAnalysisForLocalWorkflow(
+      mergeAnalysis(...parsedCandidates.map((candidate) => candidate.parsed.analysis), geometryParsed?.analysis),
+      workflowId
+    );
     const primaryParsed = parsedCandidates[0]?.parsed || geometryParsed;
     if (!primaryParsed && !hasAnalysisData(analysis)) throw new Error("The completed local run did not include readable log, JSON, or XYZ data.");
 
@@ -4251,7 +4309,8 @@ async function loadLocalRunnerJobFromUrl() {
     parsed.summary = [
       `Run status: ${job.status || "unknown"}`,
       `Log: ${outputName}`,
-      ...parsed.summary
+      ...localRunnerScopedAnalysisSummary(analysis, workflowId),
+      ...parsed.summary.filter((item) => !isLocalRunnerRawAnalysisCount(item))
     ];
     setStatusText(dom.viewerDataStatus, parsed.status, "ok");
     applyParsedAnalysis(parsed);
@@ -4259,8 +4318,7 @@ async function loadLocalRunnerJobFromUrl() {
     updateMoleculeViewer();
   } catch (error) {
     const message = error.message || "Could not load the completed local run.";
-    state.analysisXYZ = "0\nLocal run geometry unavailable";
-    lastMoleculeSignature = "";
+    resetAnalysisForNewLoad("0\nLocal run geometry unavailable");
     setStatusText(dom.viewerDataStatus, message, "error");
     updateAnalysisSummary({
       heading: "Local run could not be loaded",
@@ -4292,6 +4350,109 @@ function localRunnerArtifactRank(artifact) {
   if (name.endsWith(".xyz")) return 4;
   if (name.endsWith(".log")) return 5;
   return 9;
+}
+
+function localRunnerWorkflowId(job) {
+  const explicit = String(job?.workflow || "").trim();
+  if (explicit) return explicit;
+  const text = [
+    job?.name,
+    fileNameFromPath(job?.input),
+    fileNameFromPath(job?.output),
+    ...(Array.isArray(job?.artifacts) ? job.artifacts.map((artifact) => artifact?.name || artifact?.path || "") : [])
+  ].join(" ").toLowerCase();
+  if (/nmr|shield/.test(text)) return "nmr";
+  if (/raman/.test(text)) return "raman";
+  if (/(^|[_\W])ir($|[_\W])|infrared/.test(text)) return "ir";
+  if (/hess|freq|frequency/.test(text)) return "hessian";
+  if (/mo|molden|orbital|density|cube/.test(text)) return "orbitals-density";
+  if (/nacme|nac/.test(text)) return "mrsf-nac";
+  if (/ekt/.test(text)) return "ekt";
+  return "";
+}
+
+function localRunnerArtifactAllowedForWorkflow(artifact, workflowId) {
+  const name = String(artifact?.name || artifact?.path || "").toLowerCase();
+  if (!name) return false;
+  if (name.endsWith(".hess.json") || (name.includes("hess") && name.endsWith(".json"))) return workflowAllowsVibrations(workflowId);
+  if (name.endsWith(".molden") || name.endsWith(".mol") || name.endsWith(".cube") || name.endsWith(".cub")) return workflowAllowsOrbitals(workflowId);
+  if (name.endsWith(".json")) return workflowAllowsStructuredJson(workflowId);
+  return false;
+}
+
+function filterAnalysisForLocalWorkflow(analysis, workflowId) {
+  const normalized = normalizeAnalysisResult(analysis);
+  const filtered = createEmptyAnalysisResult();
+  filtered.energy = filterEnergyForLocalWorkflow(normalized.energy, workflowId);
+  if (workflowAllowsOrbitals(workflowId)) filtered.orbitals = normalized.orbitals;
+  if (workflowAllowsVibrations(workflowId)) {
+    filtered.vibrations = normalized.vibrations;
+    filtered.hessian = normalized.hessian;
+  }
+  if (workflowAllowsNmr(workflowId)) filtered.nmr = normalized.nmr;
+  if (workflowAllowsSurfaces(workflowId)) filtered.surfaces = normalized.surfaces;
+  return filtered;
+}
+
+function localRunnerScopedAnalysisSummary(analysis, workflowId) {
+  const normalized = normalizeAnalysisResult(analysis);
+  const summary = [];
+  const energyCount = normalized.energy.values.length;
+  if (energyCount === 1) {
+    summary.push(`Final energy shown: ${formatScalar(normalized.energy.values[0].value, 8)} hartree`);
+  } else if (energyCount > 1) {
+    summary.push(`${energyCount} energy points shown`);
+  }
+  if (workflowAllowsOrbitals(workflowId) && normalized.orbitals.levels.length) {
+    summary.push(`${normalized.orbitals.levels.length} orbital energy row(s) shown`);
+  }
+  if (workflowAllowsVibrations(workflowId) && normalized.vibrations.modes.length) {
+    summary.push(`${normalized.vibrations.modes.length} vibrational mode(s) shown`);
+  }
+  if (workflowAllowsNmr(workflowId) && normalized.nmr.tensors.length) {
+    summary.push(`${normalized.nmr.tensors.length} NMR tensor row(s) shown`);
+  }
+  return summary;
+}
+
+function isLocalRunnerRawAnalysisCount(item) {
+  return /\b(?:energy-like values?|vibrational modes?|NMR tensor rows?|MO metadata|orbital energy|Hessian matrix)\b/i.test(item);
+}
+
+function filterEnergyForLocalWorkflow(energy, workflowId) {
+  const values = (energy.values || []).filter((row) => Number.isFinite(Number(row.value)));
+  if (workflowAllowsEnergyTrace(workflowId)) return { ...energy, values };
+  const finalValue = [...values].reverse().find((row) => /final|total|state/i.test(row.label || "")) || values.at(-1);
+  if (!finalValue) return { ...energy, values: [] };
+  return {
+    ...energy,
+    energy: Number(finalValue.value),
+    values: [{ ...finalValue, index: 1, label: finalValue.label || "Energy" }]
+  };
+}
+
+function workflowAllowsEnergyTrace(workflowId) {
+  return ["optimize", "mrsf-optimize", "transition-state", "irc", "mrsf-mep", "mecp", "mrsf-meci"].includes(workflowId);
+}
+
+function workflowAllowsVibrations(workflowId) {
+  return ["hessian", "ir", "raman", "mrsf-hessian"].includes(workflowId);
+}
+
+function workflowAllowsNmr(workflowId) {
+  return workflowId === "nmr";
+}
+
+function workflowAllowsOrbitals(workflowId) {
+  return workflowId === "orbitals-density";
+}
+
+function workflowAllowsSurfaces(workflowId) {
+  return workflowId === "orbitals-density";
+}
+
+function workflowAllowsStructuredJson(workflowId) {
+  return workflowAllowsVibrations(workflowId) || ["mrsf-nac", "ekt", "orbitals-density"].includes(workflowId);
 }
 
 function parsedHasMoleculeGeometry(parsed) {
